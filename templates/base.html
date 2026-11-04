@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+  <link rel="icon" type="image/svg+xml" href="{% static 'brand/cmais-icone.svg' %}">
+  <title>{% block title %}Central de suporte{% endblock %} · C+ Service Desk</title>
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}">
+  <script src="{% static 'js/htmx-2.0.4.min.js' %}" defer></script>
+  <script src="{% static 'js/portal.js' %}" defer></script>
+  {% block extra_script %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  <div class="portal-shell">
+    <aside class="sidebar" aria-label="Menu principal">
+      <a class="brand" href="{% url 'home' %}" aria-label="C+ Service Desk, início">
+        <span class="corporate-brand"><img src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contabilidade" width="340" height="69"><span class="brand-service">SERVICE DESK <span>SUPORTE INTERNO</span></span></span>
+      </a>
+      <p class="nav-label">ESPAÇO DO COLABORADOR</p>
+      <nav aria-label="Navegação">
+        <a href="{% url 'home' %}" class="nav-link{% if active_page == 'home' %} is-active{% endif %}" {% if active_page == 'home' %}aria-current="page"{% endif %}>
+          <span class="nav-symbol" aria-hidden="true">⌂</span> Visão geral
+        </a>
+        {% if user.is_authenticated %}
+        <a class="nav-link{% if active_page == 'tickets' %} is-active{% endif %}" href="{% url 'tickets:list' %}" {% if active_page == 'tickets' %}aria-current="page"{% endif %}><span class="nav-symbol" aria-hidden="true">≡</span> Meus chamados</a>
+        <a class="nav-link{% if active_page == 'new_ticket' %} is-active{% endif %}" href="{% url 'tickets:create' %}" {% if active_page == 'new_ticket' %}aria-current="page"{% endif %}><span class="nav-symbol" aria-hidden="true">＋</span> Novo chamado</a>
+        {% else %}
+        <span class="nav-link is-disabled" aria-disabled="true"><span class="nav-symbol" aria-hidden="true">≡</span> Meus chamados <small>Acesso restrito</small></span>
+        <span class="nav-link is-disabled" aria-disabled="true"><span class="nav-symbol" aria-hidden="true">＋</span> Novo chamado <small>Acesso restrito</small></span>
+        {% endif %}
+        {% if is_portal_administrator %}
+        <p class="nav-label">ADMINISTRAÇÃO</p>
+        <a class="nav-link" href="{% url 'admin:index' %}">Administração de usuários</a>
+        <a href="{% url 'integrations' %}" class="nav-link{% if active_page == 'integrations' %} is-active{% endif %}" {% if active_page == 'integrations' %}aria-current="page"{% endif %}>Integrações</a>
+        {% endif %}
+      </nav>
+      <div class="sidebar-note"><span class="status-dot" aria-hidden="true"></span> Central de suporte C+<p>Acesso interno · C+ Contadores</p></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <span class="topbar-label">Tecnologia da informação <span aria-hidden="true">/</span> Central de suporte</span>
+        {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button button-quiet" type="submit">Sair</button></form>
+        {% else %}
+        <a class="button button-quiet" href="{% url 'login' %}">Acesso corporativo <span aria-hidden="true">↗</span></a>
+        {% endif %}
+      </header>
+      <main id="conteudo" tabindex="-1">{% for message in messages %}<div class="notice{% if message.tags %} notice-{{ message.tags }}{% endif %}" role="status">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
+      <footer class="footer"><span>C+ Contadores · Service Desk</span><span>Um ponto de apoio para o seu dia.</span></footer>
+    </div>
+  </div>
+</body>
+</html>

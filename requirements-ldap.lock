@@ -1,0 +1,3 @@
+# Dependências opcionais. Linux requer headers OpenLDAP/SASL para compilar python-ldap.
+django-auth-ldap==5.4.0
+python-ldap==3.4.8

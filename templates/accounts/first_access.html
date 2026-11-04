@@ -1,0 +1,44 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bem-vindo — C+ Service Desk</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'brand/cmais-icone.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}">
+  <script src="{% static 'js/first-access.js' %}" defer></script>
+</head>
+<body class="first-access-page">
+  <main class="first-access-stage">
+    <dialog open id="first-access-dialog" class="first-access-card" aria-labelledby="welcome-title" aria-describedby="welcome-description">
+      <img class="first-access-logo" src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contabilidade" width="260" height="53">
+      <p class="eyebrow">SEU PRIMEIRO ACESSO</p>
+      <h1 id="welcome-title">Bem-vindo ao C+ Service Desk!</h1>
+      <p id="welcome-description">Olá, {{ user.first_name|default:user.username }}. Defina uma senha só sua para começar a abrir e acompanhar seus chamados.</p>
+      {% if form.errors %}<div class="error-summary" role="alert" tabindex="-1"><strong>Confira os campos abaixo.</strong>{{ form.non_field_errors }}</div>{% endif %}
+      <form method="post" class="ticket-form" id="first-access-form">{% csrf_token %}
+        {% for field in form %}
+        <div class="form-field">
+          {{ field.label_tag }}
+          <div class="password-input-row">{{ field }}<button type="button" class="password-toggle" data-password-toggle="{{ field.id_for_label }}" aria-controls="{{ field.id_for_label }}" aria-pressed="false" aria-label="Mostrar {{ field.label|lower }}">Mostrar</button></div>
+          <div class="field-errors" id="{{ field.name }}-errors">{{ field.errors }}</div>
+        </div>
+        {% endfor %}
+        <div class="password-requirements" id="password-requirements">
+          <strong>Sua senha precisa:</strong>
+          <ul>
+            <li data-rule="length">Ter pelo menos 8 caracteres.</li>
+            <li data-rule="numeric">Não ser composta somente por números.</li>
+            <li data-rule="match">Ser igual nos dois campos.</li>
+          </ul>
+          <p>Evite senhas comuns e informações como seu nome ou e-mail. Não reutilize a senha inicial. A validação final acontece ao confirmar.</p>
+        </div>
+        <p id="password-feedback" class="password-feedback" role="status" aria-live="polite"></p>
+        <button type="submit" class="button button-primary first-access-submit">Salvar senha e entrar</button>
+      </form>
+      <p class="first-access-note">A troca é obrigatória para proteger sua conta.</p>
+      <form method="post" action="{% url 'logout' %}" class="first-access-logout">{% csrf_token %}<button type="submit" class="button button-quiet">Sair da conta</button></form>
+    </dialog>
+  </main>
+</body>
+</html>

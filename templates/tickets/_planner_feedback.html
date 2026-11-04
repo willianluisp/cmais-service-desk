@@ -1,0 +1,2 @@
+{% if error %}<p class="field-errors">{{ error }}</p>{% elif changed %}<p class="notice-success">Status atualizado no portal.</p>{% else %}<p>O chamado já está atualizado.</p>{% endif %}
+{% if status_label %}<p>Estado: {{ status_label }} · Última consulta: {{ synced_at_display }}.</p><span class="ticket-status" id="ticket-status-label" hx-swap-oob="true">{{ status_label }}</span><strong id="planner-status-label" hx-swap-oob="true">{{ status_label }}</strong><span id="ticket-updated-at" hx-swap-oob="true">{{ updated_at_display }}</span>{% endif %}

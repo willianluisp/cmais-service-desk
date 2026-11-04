@@ -1,0 +1,13 @@
+# Opt-in only after protected credentials have passed local readiness checks.
+# Apply together with compose.isolated.yaml; never start worker/beat here.
+services:
+  web:
+    environment:
+      MICROSOFT_GRAPH_APPROVED: "true"
+      GRAPH_DELEGATED_OAUTH_ENABLED: "true"
+      PLANNER_ENABLED: "false"
+      PLANNER_TEST_ENABLED: "false"
+      EMAIL_ENABLED: "false"
+      PLANNER_ATTACHMENTS_ENABLED: "false"
+      GRAPH_ATTACHMENTS_STORAGE_APPROVED: "false"
+      GRAPH_ATTACHMENT_SCOPE_ENABLED: "false"

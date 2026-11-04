@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Novo chamado{% endblock %}
+{% block content %}
+<header class="page-heading"><p class="eyebrow">CENTRAL DE SUPORTE</p><h1>Novo chamado</h1><p>Descreva o que aconteceu para a TI ajudar você.</p></header>
+<section class="ticket-section ticket-intake" aria-labelledby="request-information">
+  <h2 id="request-information">Como podemos ajudar?</h2><p>Os campos obrigatórios estão indicados. Seus anexos só serão enviados ao confirmar o formulário.</p>
+  <p class="notice">Não inclua senhas, dados bancários ou informações pessoais desnecessárias.</p>
+  <form method="post" enctype="multipart/form-data" class="ticket-form" data-submit-feedback>{% csrf_token %}
+    {% if form.errors %}<div class="error-summary" role="alert" tabindex="-1"><h3>Revise os campos antes de enviar</h3>{{ form.non_field_errors }}<ul>{% for field in form %}{% if field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}: {{ field.errors|striptags }}</a></li>{% endif %}{% endfor %}</ul><p>Se anexou arquivos, selecione-os novamente após corrigir os campos.</p></div>{% endif %}
+    {% for hidden in form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}
+    {% for field in form.visible_fields %}<div class="form-field field-{{ field.name }}">{{ field.label_tag }}{% if field.field.required %}<span class="field-requirement">Obrigatório</span>{% endif %}{{ field }}{% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="helptext">{{ field.help_text }}</p>{% endif %}{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% if field.name == 'attachments' %}<p id="attachment-status" class="helptext" role="status">Nenhum arquivo selecionado.</p><ul id="attachment-preview" class="attachment-preview" aria-label="Arquivos selecionados"></ul>{% endif %}</div>{% endfor %}
+    <div class="ticket-actions"><button type="submit" class="button button-primary" data-loading-label="Enviando chamado…">Abrir chamado</button><a href="{% url 'tickets:list' %}" class="button button-quiet">Cancelar</a></div><p class="helptext" data-submit-status role="status"></p>
+  </form>
+</section>
+<dialog id="attachment-dialog" aria-labelledby="attachment-dialog-title"><h2 id="attachment-dialog-title">Pré-visualização da imagem</h2><button type="button" class="button button-quiet" data-close-preview>Fechar pré-visualização</button><img alt=""></dialog>
+{% endblock %}
+{% block extra_script %}<script src="{% static 'js/attachments.js' %}" defer></script>{% endblock %}

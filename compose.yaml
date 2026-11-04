@@ -1,0 +1,89 @@
+name: cmais-service-desk
+
+x-app: &app
+  image: cmais-service-desk:local
+  build: .
+  user: "10001:10001"
+  init: true
+  env_file: .env
+  environment:
+    DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Defina DJANGO_SECRET_KEY no arquivo .env}
+    DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+    DATABASE_URL: postgresql://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}@db:5432/${POSTGRES_DB:-service_desk}
+    REDIS_URL: redis://redis:6379/0
+  networks: [backend, outbound]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  restart: unless-stopped
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
+
+services:
+  web:
+    <<: *app
+    command: [gunicorn, "config.wsgi:application", --bind, "0.0.0.0:8000", --workers, "2", --timeout, "30", --error-logfile, "-"]
+    ports: ["127.0.0.1:${WEB_PORT:-8000}:8000"]
+    volumes: [attachments:/app/media]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready/', timeout=6).read()"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+  worker:
+    <<: *app
+    command: [celery, -A, config, worker, --loglevel=WARNING, --concurrency=2]
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A config inspect ping --destination "celery@$$HOSTNAME" --timeout 3']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  beat:
+    <<: *app
+    command: [celery, -A, config, beat, --loglevel=WARNING, --pidfile=/tmp/celerybeat.pid, --schedule=/app/run/celerybeat-schedule]
+    volumes: [beat_state:/app/run]
+    healthcheck:
+      test: [CMD, python, -c, "import os; from pathlib import Path; os.kill(int(Path('/tmp/celerybeat.pid').read_text()), 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-service_desk}
+      POSTGRES_USER: ${POSTGRES_USER:-portal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    networks: [backend]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, "yes"]
+    volumes: [redis_data:/data]
+    networks: [backend]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  backend: {internal: true}
+  outbound: {}
+
+volumes:
+  postgres_data:
+  redis_data:
+  attachments:
+  beat_state:

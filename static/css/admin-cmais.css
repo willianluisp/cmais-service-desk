@@ -1,0 +1,21 @@
+:root, html[data-theme="light"], html[data-theme="dark"] {
+  --primary: #003a56; --secondary: #003a56; --accent: #ffffff;
+  --primary-fg: #ffffff; --body-fg: #003a56; --body-bg: #f3f5f8;
+  --header-bg: #ffffff; --header-color: #003a56; --header-link-color: #003a56;
+  --link-fg: #003a56; --link-hover-color: #002c42; --breadcrumbs-bg: #eaf0f4;
+  --breadcrumbs-fg: #425d70; --breadcrumbs-link-fg: #003a56;
+  --darkened-bg: #eaf0f4; --selected-bg: #eaf0f4; --selected-row: #eaf0f4;
+  --button-bg: #003a56; --button-hover-bg: #002c42; --default-button-bg: #003a56;
+  --default-button-hover-bg: #002c42; --border-color: #dce4eb;
+}
+body { font-family: "Segoe UI", sans-serif; line-height: 1.5; }
+#header { border-bottom: 1px solid var(--border-color); gap: 16px; }
+.cmais-admin-brand { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.cmais-admin-brand img { display: block; max-width: 100%; height: auto; }
+.cmais-admin-brand span { color: #425d70; font-size: 14px; }
+.cmais-portal-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+.module, .submit-row { border-radius: 8px; overflow: hidden; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #003a56; outline-offset: 3px; }
+#changelist-filter, #changelist .results, .module { background: #ffffff; }
+.theme-toggle { display: none; }
+@media (max-width: 767px) { .cmais-admin-brand { gap: 8px; } .cmais-admin-brand img { width: 160px; } }

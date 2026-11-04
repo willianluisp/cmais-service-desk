@@ -1,0 +1,129 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import never_cache
+
+from .forms import TicketForm
+from .models import Attachment, Ticket
+from .permissions import visible_tickets
+from .services import create_ticket
+
+
+def _ticket(request, pk):
+    return get_object_or_404(
+        visible_tickets(request.user, Ticket.objects.select_related("requester", "category", "assignee")),
+        pk=pk,
+    )
+
+
+@login_required
+@never_cache
+def ticket_list(request):
+    tickets = visible_tickets(request.user, Ticket.objects.all())
+    raw_counts = dict(tickets.values("status").annotate(total=Count("pk")).values_list("status", "total"))
+    counts = {key: sum(raw_counts.get(value, 0) for value in values)
+              for key, values in Ticket.PORTAL_STATUS_GROUPS.items()}
+    query = request.GET.get("q", "").strip()[:160]
+    status = request.GET.get("status", "")
+    priority = request.GET.get("priority", "")
+    if query:
+        tickets = tickets.filter(Q(number__icontains=query) | Q(title__icontains=query))
+    if status in Ticket.Status.values:
+        normalized = Ticket.portal_status_for(status)
+        tickets = tickets.filter(status__in=Ticket.PORTAL_STATUS_GROUPS[normalized])
+        status = normalized
+    if priority in Ticket.Priority.values:
+        tickets = tickets.filter(priority=priority)
+    page = Paginator(tickets.select_related("category", "requester", "assignee"), 20).get_page(
+        request.GET.get("page")
+    )
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(request, "tickets/list.html", {
+        "page_obj": page, "counts": counts, "q": query, "status": status,
+        "priority": priority, "statuses": Ticket.PORTAL_STATUS_LABELS.items(),
+        "priorities": Ticket.Priority.choices, "filters_query": params.urlencode(),
+        "active_page": "tickets",
+    })
+
+
+@login_required
+@never_cache
+def ticket_create(request):
+    files = request.FILES.copy()
+    if request.FILES:
+        files.setlist("attachments", request.FILES.getlist("attachments"))
+    form = TicketForm(request.POST if request.method == "POST" else None, files or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            ticket = create_ticket(actor=request.user, **form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, f"Chamado {ticket.number} registrado com sucesso. Você pode acompanhar as atualizações nesta página.")
+            return redirect("tickets:detail", pk=ticket.pk)
+    return render(request, "tickets/create.html", {"form": form, "active_page": "new_ticket"})
+
+
+def _detail(request, ticket, *, response_status=200):
+    events = ticket.events.select_related("actor")
+    events = events.filter(is_internal=False)
+    return render(request, "tickets/detail.html", {
+        "ticket": ticket, "events": events, "attachments": ticket.attachments.all(),
+        "is_owner": ticket.requester_id == request.user.pk,
+        "active_page": "tickets",
+    }, status=response_status)
+
+
+@login_required
+@never_cache
+def ticket_detail(request, pk):
+    return _detail(request, _ticket(request, pk))
+
+
+@login_required
+@never_cache
+def attachment_download(request, pk, attachment_id):
+    ticket = _ticket(request, pk)
+    attachment = get_object_or_404(Attachment, pk=attachment_id, ticket=ticket)
+    from .uploads import private_storage
+
+    try:
+        file = private_storage().open(attachment.storage_key, "rb")
+    except FileNotFoundError as exc:
+        raise Http404 from exc
+    response = FileResponse(file, as_attachment=True, filename=attachment.original_name,
+                            content_type=attachment.mime_type)
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+@never_cache
+def attachment_preview(request, pk, attachment_id):
+    ticket = _ticket(request, pk)
+    attachment = get_object_or_404(Attachment, pk=attachment_id, ticket=ticket)
+    if attachment.mime_type not in {"application/pdf", "image/png", "image/jpeg"}:
+        raise Http404
+    from .uploads import private_storage
+
+    try:
+        file = private_storage().open(attachment.storage_key, "rb")
+    except FileNotFoundError as exc:
+        raise Http404 from exc
+    response = FileResponse(
+        file,
+        as_attachment=False,
+        filename=attachment.original_name,
+        content_type=attachment.mime_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = (
+        "default-src 'none'; script-src 'none'; style-src 'none'; object-src 'none'; "
+        "frame-ancestors 'self'; sandbox"
+    )
+    return response

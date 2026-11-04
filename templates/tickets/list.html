@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Meus chamados{% endblock %}
+{% block content %}
+<header class="page-heading"><p class="eyebrow">CENTRAL DE SUPORTE</p><h1>Meus chamados</h1><p class="lead">Acompanhe suas solicitações e as atualizações do atendimento.</p></header>
+<div class="ticket-actions"><a class="button button-primary" href="{% url 'tickets:create' %}">Novo chamado</a></div>
+<div class="ticket-stats" aria-label="Resumo dos chamados"><article><strong>{{ counts.ABERTO|default:0 }}</strong><span>Abertos</span></article><article><strong>{{ counts.EM_ATENDIMENTO|default:0 }}</strong><span>Em andamento</span></article><article><strong>{{ counts.RESOLVIDO|default:0 }}</strong><span>Finalizados</span></article></div>
+<form method="get" class="ticket-form ticket-filters" aria-label="Filtrar meus chamados">
+  <div class="form-field"><label for="search">Protocolo ou assunto</label><input id="search" type="search" name="q" value="{{ q }}" maxlength="160" placeholder="Buscar um chamado"></div>
+  <div class="form-field"><label for="filter-status">Status</label><select id="filter-status" name="status"><option value="">Todos</option>{% for value,label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="form-field"><label for="filter-priority">Prioridade</label><select id="filter-priority" name="priority"><option value="">Todas</option>{% for value,label in priorities %}<option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <button class="button button-primary" type="submit">Filtrar</button>{% if q or status or priority %}<a class="button button-quiet" href="{% url 'tickets:list' %}">Limpar filtros</a>{% endif %}
+</form>
+<div class="ticket-table-wrap" tabindex="0" role="region" aria-label="Lista de chamados"><table class="ticket-table" role="table"><caption>Suas solicitações · {{ page_obj.paginator.count }} resultado{{ page_obj.paginator.count|pluralize:"s" }}</caption><thead><tr><th scope="col">Chamado</th><th scope="col">Categoria</th><th scope="col">Status</th><th scope="col">Prioridade</th><th scope="col">Responsável</th><th scope="col">Abertura</th><th scope="col">Última atualização</th></tr></thead><tbody>
+{% for ticket in page_obj %}
+<tr>
+  <th scope="row"><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}<span class="request-title">{{ ticket.title }}</span><span class="helptext">Ver detalhes →</span></a></th>
+  <td data-label="Categoria">{{ ticket.category }}</td>
+  <td data-label="Status"><span class="ticket-status">{{ ticket.portal_status_label }}</span></td>
+  <td data-label="Prioridade">{{ ticket.get_priority_display }}</td>
+  <td data-label="Responsável">{% if ticket.planner_assignee_names %}{{ ticket.planner_assignee_names|join:", " }}{% elif ticket.assignee %}{{ ticket.assignee.get_full_name|default:ticket.assignee.username }}{% else %}Aguardando atribuição{% endif %}</td>
+  <td data-label="Abertura"><time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|date:"d/m/Y H:i" }}</time></td>
+  <td data-label="Última atualização"><time datetime="{{ ticket.updated_at|date:'c' }}">{{ ticket.updated_at|date:"d/m/Y H:i" }}</time></td>
+</tr>
+{% empty %}
+<tr><td colspan="7"><div class="empty-state"><h2>Nenhum chamado encontrado.</h2>{% if q or status or priority %}<p>Tente outro termo ou remova os filtros para ver suas solicitações.</p><a class="button button-quiet" href="{% url 'tickets:list' %}">Limpar filtros</a>{% else %}<p>Quando precisar de ajuda, abra uma solicitação. O acompanhamento ficará disponível aqui.</p><a class="button button-primary" href="{% url 'tickets:create' %}">Abrir primeiro chamado</a>{% endif %}</div></td></tr>
+{% endfor %}
+</tbody></table></div>
+{% if page_obj.has_other_pages %}<nav class="ticket-actions" aria-label="Paginação">{% if page_obj.has_previous %}<a class="button button-quiet" href="?{{ filters_query }}&amp;page={{ page_obj.previous_page_number }}">Anterior</a>{% endif %}<span aria-current="page">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="button button-quiet" href="?{{ filters_query }}&amp;page={{ page_obj.next_page_number }}">Próxima</a>{% endif %}</nav>{% endif %}
+{% endblock %}
