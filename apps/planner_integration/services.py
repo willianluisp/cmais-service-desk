@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection, transaction
+from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -92,11 +92,16 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             ).select_related("ticket")
             if provisioning_id is not None:
                 ready = ready.filter(pk=provisioning_id)
-            ready = ready.select_for_update(skip_locked=True) if connection.features.has_select_for_update_skip_locked else ready.select_for_update()
-            provisioning = ready.first()
-            if provisioning is None:
+            candidate = ready.first()
+            if candidate is None:
                 break
-            ticket = provisioning.ticket
+            ticket = Ticket.objects.select_for_update().filter(pk=candidate.ticket_id).first()
+            if ticket is None or ticket.archived_at or ticket.planner_deleted_at:
+                continue
+            provisioning = ready.select_for_update().filter(pk=candidate.pk).first()
+            if provisioning is None:
+                continue
+            provisioning.ticket = ticket
             if ticket.planner_task_id:
                 try:
                     client = graph_client or configured_client()
@@ -304,7 +309,9 @@ def _confirm_deleted(ticket, client):
 
 def _mark_deleted(*, actor, original):
     with transaction.atomic():
-        current = Ticket.objects.select_for_update().get(pk=original.pk)
+        current = Ticket.objects.select_for_update().filter(pk=original.pk).first()
+        if current is None:
+            raise Http404
         if not visible_tickets(actor, Ticket.objects.filter(pk=current.pk)).exists():
             raise Http404
         if current.version != original.version or current.planner_task_id != original.planner_task_id:
@@ -335,6 +342,8 @@ def sync_ticket(*, actor, ticket_id, graph_client=None):
     original = visible_tickets(actor, Ticket.objects.all()).filter(pk=ticket_id).first()
     if original is None:
         raise Http404
+    if original.planner_deleted_at:
+        raise PlannerError('TASK_NOT_LINKED', 'A tarefa foi removida no Planner; o chamado foi restaurado somente no portal.', status=409)
     graph_client = graph_client or configured_read_client()
     if not original.planner_task_id:
         raise PlannerError(

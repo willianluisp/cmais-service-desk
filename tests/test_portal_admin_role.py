@@ -19,9 +19,9 @@ def test_group_grants_admin_and_integrations_without_staff_or_superuser(client, 
     client.force_login(portal_admin)
     assert client.get("/integracoes/").status_code == 200
     assert client.get("/admin/").status_code == 200
-    assert client.get("/admin/auth/user/").status_code == 200
+    assert client.get("/admin/auth/user/").status_code == 403
     html = client.get("/").content.decode()
-    assert 'href="/integracoes/"' in html and 'href="/admin/"' in html
+    assert 'href="/integracoes/"' in html and 'Administração de usuários' not in html
     portal_admin.refresh_from_db()
     assert not portal_admin.is_staff and not portal_admin.is_superuser
 
@@ -60,10 +60,10 @@ def test_group_admin_cannot_edit_privileged_accounts_or_grant_privileges(client,
         "email": "employee@example.test", "is_active": "on", "_save": "Save",
         "is_superuser": "on", "is_staff": "on", "groups": [portal_admin.groups.first().pk],
     })
-    assert response.status_code == 302
+    assert response.status_code == 403
     employee.refresh_from_db()
     superuser.refresh_from_db()
-    assert employee.first_name == "Employee" and employee.password == before
+    assert employee.first_name == "" and employee.password == before
     assert not employee.is_staff and not employee.is_superuser and not employee.groups.exists()
     assert superuser.password == password_before and superuser.is_active
 

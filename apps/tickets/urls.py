@@ -1,9 +1,13 @@
 from django.urls import path
 
-from . import views
+from . import lifecycle_views, views
 
 app_name = "tickets"
 urlpatterns = [
+    path('chamados/arquivados/', lifecycle_views.archived, name='archived'),
+    path('chamados/<uuid:pk>/arquivar/', lifecycle_views.archive, name='archive'),
+    path('chamados/<uuid:pk>/restaurar/', lifecycle_views.restore, name='restore'),
+    path('chamados/<uuid:pk>/excluir-permanentemente/', lifecycle_views.permanent_delete, name='permanent-delete'),
     path("chamados/", views.ticket_list, name="list"),
     path("chamados/novo/", views.ticket_create, name="create"),
     path("chamados/<uuid:pk>/", views.ticket_detail, name="detail"),

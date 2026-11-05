@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Confirmar exclusão permanente{% endblock %}
+{% block content %}
+<header class="page-heading"><h1>Excluir permanentemente {{ ticket.number }}</h1><p>{{ ticket.title }}</p></header>
+<p>Esta ação é irreversível. O chamado, histórico, comentários, notificações locais e anexos privados serão removidos. A auditoria mínima será preservada.</p>
+<p>Tarefas e arquivos já publicados na Microsoft não serão excluídos. Seus identificadores serão preservados para revisão administrativa.</p>
+<form method="post" class="ticket-form">{% csrf_token %}{{ form.as_p }}<button type="submit" class="button button-primary">Confirmar exclusão permanente</button></form>
+<a href="{% url 'tickets:archived' %}" class="button button-quiet">Cancelar e voltar aos arquivados</a>
+{% endblock %}

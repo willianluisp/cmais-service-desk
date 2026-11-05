@@ -33,3 +33,10 @@ def publish_pending_attachments(limit=10):
     from .attachments import process_publications
 
     return process_publications(limit=limit)
+
+
+@shared_task(ignore_result=True)
+def cleanup_deleted_ticket_files():
+    from apps.tickets.lifecycle import process_file_deletions
+
+    process_file_deletions()

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Chamados arquivados{% endblock %}
+{% block content %}
+<header class="page-heading"><h1>Chamados arquivados</h1><p>Restaure um chamado ou abra a confirmação de exclusão permanente individual.</p></header>
+<a class="button button-quiet" href="{% url 'tickets:list' %}">Voltar aos chamados</a>
+<form method="get" class="ticket-form"><label for="archive-search">Número do chamado</label><input id="archive-search" name="q" value="{{ q }}"><button class="button" type="submit">Pesquisar</button></form>
+<div class="ticket-table-wrap"><table class="ticket-table"><thead><tr><th>Chamado</th><th>Arquivado em</th><th>Ações</th></tr></thead><tbody>
+{% for ticket in page_obj %}<tr><td>{{ ticket.number }} · {{ ticket.title }}{% if ticket.planner_deleted_at %}<p>Tarefa removida no Planner. Restauração apenas no portal.</p>{% endif %}</td><td>{{ ticket.archived_at|date:"d/m/Y H:i" }}</td><td><form method="post" action="{% url 'tickets:restore' ticket.pk %}">{% csrf_token %}<button class="button" type="submit">Restaurar</button></form><a class="button button-quiet" href="{% url 'tickets:permanent-delete' ticket.pk %}">Excluir permanentemente…</a></td></tr>{% empty %}<tr><td colspan="3">Nenhum chamado arquivado.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Anterior</a>{% endif %}
+{% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&amp;page={{ page_obj.next_page_number }}">Próxima</a>{% endif %}
+{% endblock %}

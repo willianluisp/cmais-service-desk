@@ -292,5 +292,5 @@ def test_portal_navigation_and_counts_are_requester_only(client, ticket, people,
     for body in (response.content.decode(), home.content.decode()):
         assert "Fila da TI" not in body
         assert "Atribuídos a mim" not in body
-        assert ("Administração de usuários" in body) == (role == "ADMIN_PORTAL")
+        assert "Administração de usuários" not in body
     assert client.post(f"/chamados/{ticket.pk}/status/", {}).status_code == 404

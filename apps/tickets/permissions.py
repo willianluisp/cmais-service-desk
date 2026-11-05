@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from apps.accounts.permissions import is_portal_admin
 
 TI_GROUPS = ("TECNICO_TI", "SUPERVISOR_TI", "ADMIN_PORTAL")
@@ -16,7 +18,9 @@ def is_manager(user):
 
 
 def visible_tickets(user, queryset):
-    queryset = queryset.filter(planner_deleted_at__isnull=True, archived_at__isnull=True)
+    queryset = queryset.filter(archived_at__isnull=True).filter(
+        Q(planner_deleted_at__isnull=True) | Q(archive_reason='RESTORED_PLANNER_DELETED')
+    )
     if not user.is_authenticated or not user.is_active:
         return queryset.none()
     # Portal administrators have read-only visibility through the same detail,

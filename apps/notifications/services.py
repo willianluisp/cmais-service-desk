@@ -9,7 +9,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.core.validators import validate_email
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 from django.utils.html import escape
 
@@ -176,13 +176,20 @@ def process_pending(*, limit=50, provider=None):
                 state=NotificationOutbox.State.PENDING,
                 available_at__lte=timezone.now(),
             )
-            if connection.features.has_select_for_update_skip_locked:
-                ready = ready.select_for_update(skip_locked=True)
-            else:
-                ready = ready.select_for_update()
-            notice = ready.first()
-            if notice is None:
+            candidate = ready.select_related('event').first()
+            if candidate is None:
                 break
+            ticket_id = candidate.ticket_id or (candidate.event.ticket_id if candidate.event_id else None)
+            if ticket_id:
+                from apps.tickets.models import Ticket
+
+                ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
+                if ticket is None or ticket.archived_at:
+                    ready.filter(pk=candidate.pk).update(state='FAILED', last_error_code='TICKET_ARCHIVED')
+                    continue
+            notice = ready.select_for_update().filter(pk=candidate.pk).first()
+            if notice is None:
+                continue
             notice.attempts += 1
             try:
                 if notice.ticket_id and notice.recipient.casefold() != notice.ticket.requester.email.casefold():

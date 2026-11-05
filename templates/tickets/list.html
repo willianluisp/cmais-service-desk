@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Meus chamados{% endblock %}
 {% block content %}
+{% if is_portal_administrator %}<a class="button button-quiet" href="{% url 'tickets:archived' %}">Chamados arquivados</a>{% endif %}
 <header class="page-heading"><p class="eyebrow">CENTRAL DE SUPORTE</p><h1>Meus chamados</h1><p class="lead">Acompanhe suas solicitações e as atualizações do atendimento.</p></header>
 <div class="ticket-actions"><a class="button button-primary" href="{% url 'tickets:create' %}">Novo chamado</a></div>
 <div class="ticket-stats" aria-label="Resumo dos chamados"><article><strong>{{ counts.ABERTO|default:0 }}</strong><span>Abertos</span></article><article><strong>{{ counts.EM_ATENDIMENTO|default:0 }}</strong><span>Em andamento</span></article><article><strong>{{ counts.RESOLVIDO|default:0 }}</strong><span>Finalizados</span></article></div>

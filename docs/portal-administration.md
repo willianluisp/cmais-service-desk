@@ -1,39 +1,40 @@
-# Administração por ADMIN_PORTAL
+# Administração do portal e cadastro de usuários
 
-`ADMIN_PORTAL` é um grupo de autorização do portal, não uma permissão global
-do Django. Uma conta autenticada e ativa nesse grupo pode acessar `/admin/`
-(cadastro de colaboradores) e `/integracoes/` (configuração e diagnóstico
-Microsoft), sem precisar de `is_staff` ou `is_superuser`.
+`ADMIN_PORTAL` mantém os acessos existentes de chamados e integrações, sem
+conceder `is_staff` ou `is_superuser`. O cadastro `/admin/auth/user/` é separado:
+somente a conta ativa `willian.pedroso` pode gerenciá-lo no fluxo normal.
+Superusuários ativos preservam acesso excepcional para recuperação autorizada.
+O site administrativo continua exigindo `ADMIN_PORTAL` ou superusuário.
 
-O predicado `apps.accounts.permissions.is_portal_admin` é usado no site
-administrativo, nas permissões do cadastro, na navegação e nas verificações de
-autorização das rotas Microsoft. Superusuários ativos existentes preservam seu
-acesso. `is_staff` sozinho não autoriza a administração do portal.
+O cadastro permite pesquisar/consultar usuários, editar nome, sobrenome e login,
+ativar/desativar e adicionar/remover somente `ADMIN_PORTAL`. Outros grupos,
+e-mail, flags globais e permissões individuais são preservados. Criação e
+exclusão estão desabilitadas. Contas staff/superusuário exigem o operador
+excepcional para alteração ou redefinição, evitando tomada de contas globais.
 
-Administradores por grupo podem consultar o cadastro e criar/alterar contas
-comuns. Não podem atribuir grupos, permissões individuais, staff ou superuser.
-Não podem alterar, desativar ou redefinir a senha de contas privilegiadas,
-incluindo a própria conta administrativa. A alteração da própria senha continua
-disponível no fluxo normal `/conta/senha/`. Exclusão de usuários permanece
-bloqueada. A gestão de outros administradores exige superusuário autorizado ou
-operação local explicitamente autorizada, nunca um formulário de colaborador.
+No fluxo normal, `willian.pedroso` não pode ser renomeado, desativado nem perder
+`ADMIN_PORTAL`. Não existe concessão automática desse grupo: a conta deve já
+possuir acesso ao site. Recuperação excepcional pode corrigir esses atributos.
 
-O grupo não concede acesso aos chamados de terceiros. A consulta de chamados
-e anexos continua restrita ao solicitante. Administrar o portal não cria um
-fluxo de atendimento paralelo ao Planner.
+Senhas atuais e hashes não são exibidos no cadastro. O link Redefinir senha
+usa os validadores e o hash do Django, invalida sessões anteriores e marca
+`LocalAccount.must_change_password`, reutilizando a troca obrigatória existente.
+Senhas redefinidas não são registradas em auditoria. A troca da própria senha
+continua disponível em `/conta/senha/`.
 
-Adicionar/remover a associação ao grupo concede/revoga o acesso na próxima
-requisição autenticada. A troca obrigatória do primeiro acesso e CSRF continuam
-valendo para administradores. Uma conta com troca pendente será redirecionada
-para `/conta/senha/` antes de poder entrar nos painéis; a promoção não redefine
-a senha nem libera essa restrição.
+`AccountAudit` registra ator, alvo, instante, ação e mudanças antes/depois dos
+campos cadastrais e de `ADMIN_PORTAL`. Redefinição registra apenas a ação.
+A migração `0005_accountaudit_changes` adiciona a coluna JSON sem editar contas.
+Deve ser aplicada primeiro em homologação, antes de implantar o código.
 
-As verificações de aprovação Microsoft e os controles de confirmação de testes
-permanecem inalterados. Ser ADMIN_PORTAL não habilita integrações nem realiza
-chamadas externas. A promoção local é registrada em AccountAudit, preservando
-o histórico anterior. Não é necessário aplicar migrations.
+Permissões de chamados e anexos continuam independentes: acesso ao cadastro
+não concede visibilidade adicional. O grupo `ADMIN_PORTAL` mantém a visibilidade
+que já possuía. Nenhuma alteração dispara operações no Planner.
 
-Validação: `tests/test_portal_admin_role.py` cobre concessão sem flags globais,
-negação às outras funções, revogação, bloqueio de escalada por POST direto,
-contas privilegiadas, primeiro acesso, CSRF, elegibilidade OAuth sem chamada
-externa e privacidade dos chamados.
+Se LDAP for habilitado futuramente, o diretório continuará sendo a origem de
+nomes, grupos e credenciais dessas identidades e poderá sobrescrever mudanças
+locais na revalidação. Redefinição local não altera senha do AD.
+
+Validação isolada: `.venv/Scripts/python.exe -m pytest` usa SQLite em memória
+e usuários sintéticos; não aplicar migrações ou comandos de importação ao banco
+real durante os testes. Nenhum commit ou push faz parte deste procedimento.

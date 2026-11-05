@@ -9,7 +9,7 @@ from datetime import timedelta
 from urllib.parse import quote, urlsplit
 
 from django.conf import settings
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.tickets.models import TicketEvent
@@ -112,13 +112,22 @@ def process_publications(*, limit=10, graph_client=None):
         with transaction.atomic():
             rows = AttachmentPublication.objects.filter(
                 state__in=["PENDING", "UPLOADED"], available_at__lte=timezone.now(),
+                attachment__ticket__archived_at__isnull=True,
+                attachment__ticket__planner_deleted_at__isnull=True,
             ).exclude(attachment__ticket__planner_task_id__isnull=True).exclude(
                 attachment__ticket__planner_task_id="",
             )
-            rows = rows.select_for_update(skip_locked=True) if connection.features.has_select_for_update_skip_locked else rows.select_for_update()
-            row = rows.order_by("available_at", "pk").first()
-            if row is None:
+            candidate = rows.select_related('attachment').order_by('available_at', 'pk').first()
+            if candidate is None:
                 break
+            from apps.tickets.models import Ticket
+
+            ticket = Ticket.objects.select_for_update().filter(pk=candidate.attachment.ticket_id).first()
+            if ticket is None or ticket.archived_at or ticket.planner_deleted_at:
+                continue
+            row = rows.select_for_update().filter(pk=candidate.pk).first()
+            if row is None:
+                continue
             row.attempts += 1
             attachment = row.attachment
             try:

@@ -182,6 +182,10 @@ NOTIFICATIONS_PROVIDER = env("NOTIFICATIONS_PROVIDER", default="console")
 NOTIFICATIONS_MAX_ATTEMPTS = 5
 NOTIFICATIONS_TI_RECIPIENTS = env.list("NOTIFICATIONS_TI_RECIPIENTS", default=[])
 CELERY_BEAT_SCHEDULE = {
+    'cleanup-deleted-ticket-files': {
+        'task': 'apps.planner_integration.tasks.cleanup_deleted_ticket_files',
+        'schedule': 300.0,
+    },
     "sync-linked-planner-tasks": {
         "task": "apps.planner_integration.tasks.synchronize_linked_tasks",
         "schedule": 120.0,

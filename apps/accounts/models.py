@@ -9,6 +9,7 @@ class LocalAccount(models.Model):
 
 
 class AccountAudit(models.Model):
+    changes = models.JSONField(default=dict, blank=True)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="account_actions")
     target = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="account_changes")
     action = models.CharField(max_length=50)

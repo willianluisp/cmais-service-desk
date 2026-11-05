@@ -171,3 +171,20 @@ class Attachment(models.Model):
     size = models.PositiveIntegerField()
     sha256 = models.CharField(max_length=64)
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class TicketDeletionAudit(models.Model):
+    ticket_id = models.UUIDField(db_index=True)
+    number = models.CharField(max_length=30)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    action = models.CharField(max_length=30)
+    details = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class PrivateFileDeletion(models.Model):
+    audit = models.ForeignKey(TicketDeletionAudit, on_delete=models.PROTECT)
+    storage_key = models.CharField(max_length=255, unique=True)
+    completed_at = models.DateTimeField(null=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error_code = models.CharField(max_length=40, blank=True)
