@@ -1,14 +1,16 @@
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
 
 from apps.core.admin import portal_admin
 
-from .admin_forms import ManagedPasswordChangeForm, ManagedUserForm
+from .admin_forms import ManagedPasswordChangeForm, ManagedUserCreationForm, ManagedUserForm
 from .models import AccountAudit, LocalAccount
 from .permissions import USER_MANAGER_LOGIN, is_user_management_admin
 
@@ -16,6 +18,11 @@ from .permissions import USER_MANAGER_LOGIN, is_user_management_admin
 class EmployeeAdmin(UserAdmin):
     change_password_form = ManagedPasswordChangeForm
     form = ManagedUserForm
+    add_form = ManagedUserCreationForm
+    add_form_template = 'admin/auth/user/managed_form.html'
+    change_form_template = 'admin/auth/user/managed_form.html'
+    delete_confirmation_template = 'admin/auth/user/managed_delete.html'
+    add_fieldsets = ((None, {'fields': ('first_name', 'last_name', 'username', 'is_active', 'admin_portal', 'temporary_password')}),)
     fieldsets = ((None, {'fields': ('username', 'first_name', 'last_name', 'is_active', 'admin_portal', 'reset_password')}),)
     readonly_fields = ('reset_password',)
     list_display = ('username', 'first_name', 'last_name', 'is_active')
@@ -23,6 +30,9 @@ class EmployeeAdmin(UserAdmin):
     search_fields = ('username', 'first_name', 'last_name')
     filter_horizontal = ()
     actions = None
+
+    class Media:
+        js = ('js/managed-users.js',)
 
     def has_module_permission(self, request):
         return is_user_management_admin(request.user)
@@ -36,10 +46,39 @@ class EmployeeAdmin(UserAdmin):
         )
 
     def has_add_permission(self, request):
-        return False
+        return self.has_module_permission(request)
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return self.has_change_permission(request, obj) and (
+            obj is None or (obj.username != USER_MANAGER_LOGIN and obj.pk != request.user.pk)
+        )
+
+    def _deletion_blockers(self, obj):
+        # Even SET_NULL/CASCADE relationships carry identity or historical data.
+        return [str(relation.related_model._meta.verbose_name_plural)
+                for relation in obj._meta.related_objects
+                if not relation.many_to_many and relation.get_accessor_name() != 'local_account'
+                and relation.related_model._default_manager.filter(**{relation.field.name: obj}).exists()]
+
+    def get_deleted_objects(self, objs, request):
+        deleted, counts, perms, protected = super().get_deleted_objects(objs, request)
+        for obj in objs:
+            protected.extend(self._deletion_blockers(obj))
+        return deleted, counts, perms, protected
+
+    def delete_view(self, request, object_id, extra_context=None):
+        if request.method == 'POST' and request.POST.get('post') != 'yes':
+            raise PermissionDenied
+        return super().delete_view(request, object_id, extra_context)
+
+    @transaction.atomic
+    def delete_model(self, request, obj):
+        target = get_user_model().objects.select_for_update().get(pk=obj.pk)
+        if not self.has_delete_permission(request, target) or self._deletion_blockers(target):
+            raise PermissionDenied
+        AccountAudit.objects.create(actor=request.user, action='USER_DELETED',
+                                    changes={'user_id': target.pk, 'username': target.username})
+        target.delete()
 
     def get_form(self, request, obj=None, **kwargs):
         base = super().get_form(request, obj, **kwargs)
@@ -68,7 +107,18 @@ class EmployeeAdmin(UserAdmin):
         return response
 
     def save_model(self, request, obj, form, change):
-        if not change or not self.has_change_permission(request, obj):
+        if not change:
+            if not self.has_add_permission(request):
+                raise PermissionDenied
+            obj.is_staff = obj.is_superuser = False
+            obj.save()
+            LocalAccount.objects.create(user=obj, must_change_password=True)
+            enabled = bool(form.cleaned_data['admin_portal'])
+            if enabled:
+                obj.groups.add(Group.objects.get_or_create(name='ADMIN_PORTAL')[0])
+            AccountAudit.objects.create(actor=request.user, target=obj, action='USER_CREATED')
+            return
+        if not self.has_change_permission(request, obj):
             raise PermissionDenied
         before = get_user_model().objects.select_for_update().get(pk=obj.pk)
         enabled = bool(form.cleaned_data['admin_portal'])
@@ -81,14 +131,44 @@ class EmployeeAdmin(UserAdmin):
         old_role = before.groups.filter(name='ADMIN_PORTAL').exists()
         if old_role != enabled:
             changes['ADMIN_PORTAL'] = {'before': old_role, 'after': enabled}
-        obj.save(update_fields=fields)
-        group, _ = Group.objects.get_or_create(name='ADMIN_PORTAL')
-        if enabled:
-            obj.groups.add(group)
-        else:
-            obj.groups.remove(group)
-        if changes:
-            AccountAudit.objects.create(actor=request.user, target=obj, action='USER_CHANGED', changes=changes)
+        request._user_before_relations = {
+            'groups': set(before.groups.values_list('pk', flat=True)),
+            'user_permissions': set(before.user_permissions.values_list('pk', flat=True)),
+        }
+        request._user_changes = changes
+        if any(field in changes for field in fields):
+            obj.save(update_fields=fields)
+        if old_role != enabled:
+            group, _ = Group.objects.get_or_create(name='ADMIN_PORTAL')
+            if enabled:
+                obj.groups.add(group)
+            else:
+                obj.groups.remove(group)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if change:
+            changes = request._user_changes
+            for field, before in request._user_before_relations.items():
+                after = set(getattr(form.instance, field).values_list('pk', flat=True))
+                if before != after:
+                    changes[field] = {'before': sorted(before), 'after': sorted(after)}
+            if changes:
+                AccountAudit.objects.create(actor=request.user, target=form.instance,
+                                            action='USER_CHANGED', changes=changes)
+
+    def log_change(self, request, obj, message):
+        if getattr(request, '_user_changes', None):
+            super().log_change(request, obj, message)
+
+    def response_change(self, request, obj):
+        if getattr(request, '_user_changes', None):
+            self.message_user(request, 'Usuário salvo com sucesso.', messages.SUCCESS)
+        return redirect('admin:auth_user_change', obj.pk)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        self.message_user(request, 'Usuário criado com sucesso.', messages.SUCCESS)
+        return redirect('admin:auth_user_change', obj.pk)
 
 
 portal_admin.register(get_user_model(), EmployeeAdmin)

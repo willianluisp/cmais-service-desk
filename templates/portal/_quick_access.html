@@ -1,0 +1,6 @@
+<nav class="quick-access" aria-label="Acesso rápido">
+  <a class="quick-access-item" href="{% url 'tickets:create' %}"><span class="quick-access-icon" aria-hidden="true">＋</span><strong>Abrir chamado</strong><span>Registrar uma solicitação para a TI</span></a>
+  <a class="quick-access-item" href="{% url 'tickets:list' %}"><span class="quick-access-icon" aria-hidden="true">≡</span><strong>Meus chamados</strong><span>Consultar protocolos e histórico</span></a>
+  <a class="quick-access-item" href="{% url 'tickets:list' %}?status=EM_ATENDIMENTO"><span class="quick-access-icon" aria-hidden="true">↗</span><strong>Acompanhar solicitações</strong><span>Ver chamados em atendimento</span></a>
+  {% if is_portal_administrator %}<a class="quick-access-item" href="{% url 'admin:index' %}"><span class="quick-access-icon" aria-hidden="true">⚙</span><strong>Administração</strong><span>Gerenciar o portal conforme seu acesso</span></a>{% endif %}
+</nav>

@@ -93,11 +93,11 @@ def test_password_reset_requires_change_and_invalidates_sessions(client, manager
     assert user.password not in client.get(f'/admin/auth/user/{user.pk}/change/').content.decode()
 
 
-def test_csrf_and_no_add_delete(client, manager):
+def test_csrf_and_protected_account_deletion(client, manager):
     strict = Client(enforce_csrf_checks=True)
     strict.force_login(manager)
     assert strict.post(f'/admin/auth/user/{manager.pk}/change/', {}).status_code == 403
-    assert client.get('/admin/auth/user/add/').status_code == 403
+    assert client.get('/admin/auth/user/add/').status_code == 200
     assert client.post(f'/admin/auth/user/{manager.pk}/delete/', {}).status_code == 403
 
 

@@ -107,6 +107,10 @@ def connect_microsoft(request):
     """Start delegated OAuth through a same-origin navigation and HTTP redirect."""
     if not _oauth_available(request):
         return JsonResponse({"detail": "Integração Microsoft não está aprovada."}, status=403)
+    from .admin_panel import action_availability
+
+    if not action_availability(None)['can_connect']:
+        return JsonResponse({"detail": "Configuração OAuth Microsoft indisponível."}, status=503)
     try:
         return redirect(authorization_url(request))
     except PlannerError:

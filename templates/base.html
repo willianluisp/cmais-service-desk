@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
-  <link rel="icon" type="image/svg+xml" href="{% static 'brand/cmais-icone.svg' %}">
+  {% include 'includes/favicon.html' %}
   <title>{% block title %}Central de suporte{% endblock %} · C+ Service Desk</title>
   <link rel="stylesheet" href="{% static 'css/portal.css' %}">
   <script src="{% static 'js/htmx-2.0.4.min.js' %}" defer></script>
@@ -46,11 +46,11 @@
         {% if user.is_authenticated %}
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button button-quiet" type="submit">Sair</button></form>
         {% else %}
-        <a class="button button-quiet" href="{% url 'login' %}">Acesso corporativo <span aria-hidden="true">↗</span></a>
+        <a class="button button-primary" href="{% url 'login' %}">Login <span aria-hidden="true">→</span></a>
         {% endif %}
       </header>
       <main id="conteudo" tabindex="-1">{% for message in messages %}<div class="notice{% if message.tags %} notice-{{ message.tags }}{% endif %}" role="status">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
-      <footer class="footer"><span>C+ Contadores · Service Desk</span><span>Um ponto de apoio para o seu dia.</span></footer>
+      <footer class="footer"><span>C+ Contadores · Service Desk</span><span>Central interna de atendimento</span></footer>
     </div>
   </div>
 </body>

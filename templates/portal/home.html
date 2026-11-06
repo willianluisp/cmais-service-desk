@@ -1,12 +1,11 @@
 {% extends 'base.html' %}
-{% load static %}
+{% block title %}Início{% endblock %}
 {% block content %}
-<div class="page-heading"><p class="eyebrow">SUPORTE INTERNO</p><h1>Tudo começa com<br>um ponto de apoio.</h1><p class="lead">Um espaço para pedir ajuda, acompanhar solicitações<br class="desktop-break"> e manter seu trabalho em movimento.</p></div>
-<section class="preparation-panel" aria-labelledby="preparation-title">
-  <div class="panel-copy"><span class="pill"><span class="status-dot" aria-hidden="true"></span> Acesso interno</span><h2 id="preparation-title">Sua central de suporte C+</h2><p>Entre com sua conta para abrir solicitações, enviar anexos e acompanhar as atualizações do atendimento.</p><a class="button button-primary" href="{% url 'login' %}">Entrar no C+ Service Desk <span aria-hidden="true">→</span></a></div>
-  <div class="company-photo"><img src="{% static 'brand/empresa.webp' %}" alt="Imagem institucional de profissional com notebook utilizada no site da C+" width="447" height="452"></div>
+<header class="page-heading compact"><p class="eyebrow">AMBIENTE INTERNO</p><h1>C+ Service Desk</h1><p class="lead">Sua central de suporte C+. Entre para registrar e acompanhar solicitações à TI.</p></header>
+<section class="ticket-section access-summary" aria-labelledby="access-title">
+  <div><h2 id="access-title">Acesso do colaborador</h2><p>Utilize sua conta autorizada da C+.</p></div>
+  <a class="button button-primary" href="{% url 'login' %}">Login <span aria-hidden="true">→</span></a>
 </section>
-<section class="journey" aria-labelledby="journey-title"><div class="section-heading"><h2 id="journey-title">O atendimento, de ponta a ponta</h2><span>Como funciona</span></div><ol class="journey-steps"><li><span class="step-number">01</span><div><h3>Conte o que aconteceu</h3><p>Descreva sua solicitação e envie as informações necessárias para a TI.</p></div></li><li><span class="step-number">02</span><div><h3>Acompanhe cada etapa</h3><p>Consulte seu protocolo, os anexos e o histórico de atualizações.</p></div></li><li><span class="step-number">03</span><div><h3>Retome sua rotina</h3><p>Acompanhe a solução registrada pela equipe de TI no atendimento.</p></div></li></ol></section>
-<section class="empty-state" aria-labelledby="tickets-title"><div><p class="eyebrow">SEU HISTÓRICO</p><h2 id="tickets-title">Suas solicitações em um só lugar</h2><p>Entre para consultar seus chamados com privacidade e segurança.</p></div><a class="button button-quiet" href="{% url 'login' %}">Acessar meus chamados</a></section>
-<a class="corporate-banner" href="https://www.cmaiscontabilidade.com.br/" target="_blank" rel="noopener noreferrer"><img src="{% static 'brand/institucional.avif' %}" alt="C+ Contabilidade: soluções para supermercados. Conheça o site institucional." width="1920" height="521" loading="lazy"><span>Conheça a C+ Contabilidade <span aria-hidden="true">↗</span></span></a>
+{% include 'portal/_quick_access.html' %}
+<p class="home-note">Suas solicitações em um só lugar, com protocolo e histórico do atendimento.</p>
 {% endblock %}

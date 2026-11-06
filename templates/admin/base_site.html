@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 {% block title %}{{ title }} · Administração C+{% endblock %}
+{% block extrahead %}{{ block.super }}{% include 'includes/favicon.html' %}{% endblock %}
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin-cmais.css' %}">{% endblock %}
 {% block branding %}<div class="cmais-admin-brand"><a href="{% url 'home' %}"><img src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contadores" width="204" height="42"></a><span>Service Desk · Administração</span></div>{% endblock %}
 {% block nav-global %}<a class="cmais-portal-link" href="{% url 'home' %}">Voltar ao portal</a>{% endblock %}

@@ -105,7 +105,7 @@ def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, 
     assert response.status_code == 302
     ticket = Ticket.objects.get(requester=owner)
     assert ticket.description == "Solicitação descartável sem dados reais."
-    assert ticket.category == category
+    assert ticket.category.name == 'Atendimento geral'
     assert ticket.planner_provisioning.state == "PENDING"
     assert ticket.attachments.count() == 1
     assert not AttachmentPublication.objects.exists()

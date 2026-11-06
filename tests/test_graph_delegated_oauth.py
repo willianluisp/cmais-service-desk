@@ -60,7 +60,12 @@ def test_integration_panel_uses_internal_oauth_link_and_keeps_strict_csp(django_
     client = Client()
     client.force_login(user)
 
-    response = client.get("/integracoes/")
+    with override_settings(
+        GRAPH_TENANT_ID='synthetic-tenant', GRAPH_CLIENT_ID='synthetic-client',
+        GRAPH_TOKEN_ENCRYPTION_KEY='MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=',
+        PORTAL_BASE_URL='http://localhost:8010',
+    ):
+        response = client.get("/integracoes/")
 
     assert response.status_code == 200
     body = response.content.decode()
@@ -172,8 +177,9 @@ def test_token_exchange_categorizes_invalid_client_without_leaking_provider_deta
     PORTAL_BASE_URL="http://localhost:8010",
 )
 def test_callback_reports_safe_stage_and_category_without_oauth_secrets(
-    django_user_model, monkeypatch, caplog
+    django_user_model, monkeypatch, caplog, settings
 ):
+    settings.GRAPH_TOKEN_ENCRYPTION_KEY = 'MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA='
     user = django_user_model.objects.create_superuser("admin", "admin@example.test", "password")
     client = Client()
     client.force_login(user)
@@ -222,7 +228,8 @@ def test_identity_lookup_categorizes_graph_denial_without_reading_error_body():
     GRAPH_CLIENT_ID="client-id",
     PORTAL_BASE_URL="http://localhost:8010",
 )
-def test_callback_reports_safe_storage_failure(django_user_model, monkeypatch):
+def test_callback_reports_safe_storage_failure(django_user_model, monkeypatch, settings):
+    settings.GRAPH_TOKEN_ENCRYPTION_KEY = 'MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA='
     user = django_user_model.objects.create_superuser("admin", "admin@example.test", "password")
     client = Client()
     client.force_login(user)

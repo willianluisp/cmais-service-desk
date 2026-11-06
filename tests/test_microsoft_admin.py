@@ -17,6 +17,11 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def admin_client(django_user_model, settings):
     settings.PLANNER_PLAN_ID = DEMANDAS_PLAN_ID
+    settings.MICROSOFT_GRAPH_APPROVED = True
+    settings.GRAPH_AUTH_STRATEGY = 'client_credentials'
+    settings.GRAPH_TENANT_ID = 'synthetic-tenant'
+    settings.GRAPH_CLIENT_ID = 'synthetic-client'
+    settings.GRAPH_CLIENT_SECRET = 'synthetic-secret'
     user = django_user_model.objects.create_superuser("admin", "admin@example.test", "password")
     client = Client()
     client.force_login(user)
@@ -64,7 +69,8 @@ def test_mapping_accepts_only_observed_distinct_ids(admin_client):
     assert config.bucket_mapping == mapping
 
 
-def test_disabled_actions_do_not_call_graph(admin_client, monkeypatch):
+def test_disabled_actions_do_not_call_graph(admin_client, monkeypatch, settings):
+    settings.MICROSOFT_GRAPH_APPROVED = False
     monkeypatch.setattr("apps.planner_integration.admin_panel.GraphClient", lambda **kwargs: pytest.fail("network"))
     admin_client.post("/integracoes/microsoft/buckets/")
     admin_client.post("/integracoes/microsoft/teste/", {"confirm": "CRIAR TAREFA DE TESTE"})

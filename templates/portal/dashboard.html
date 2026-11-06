@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Início{% endblock %}
 {% block content %}
-<header class="page-heading"><p class="eyebrow">C+ SERVICE DESK</p><h1>Olá, {{ request.user.get_full_name|default:request.user.username }}</h1><p>Acompanhe suas solicitações e o atendimento da TI no Planner.</p></header>
+<header class="page-heading compact"><p class="eyebrow">C+ SERVICE DESK</p><h1>Olá, {{ request.user.get_full_name|default:request.user.username }}</h1><p>Acompanhe suas solicitações e o atendimento da TI.</p></header>
+{% include 'portal/_quick_access.html' %}
 <div class="ticket-stats"><article><strong>{{ ticket_total }}</strong><span>Total</span></article><article><strong>{{ ticket_open }}</strong><span>Abertos</span></article><article><strong>{{ ticket_progress }}</strong><span>Em andamento</span></article><article><strong>{{ ticket_resolved }}</strong><span>Finalizados</span></article></div>
 <section class="ticket-section"><div class="ticket-actions"><h2>Últimas solicitações</h2><a class="button button-primary" href="{% url 'tickets:create' %}">Novo chamado</a></div><ul class="request-list">{% for ticket in recent_tickets %}<li><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }} · {{ ticket.title }}</a> — {{ ticket.portal_status_label }} · Atualização: {{ ticket.updated_at|date:"d/m/Y H:i" }}</li>{% empty %}<li>Nenhum chamado cadastrado. <a href="{% url 'tickets:create' %}">Abra sua primeira solicitação.</a></li>{% endfor %}</ul><p><a href="{% url 'tickets:list' %}">Ver meus chamados</a></p></section>
 {% endblock %}

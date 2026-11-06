@@ -1,0 +1,16 @@
+{% extends "admin/change_form.html" %}
+{% block form_top %}
+{% if add %}<p>Crie uma conta de colaborador. Entregue a senha temporária por um canal seguro; a troca será obrigatória no primeiro acesso.</p>{% else %}<p>Para interromper o acesso, desmarque <strong>Ativo</strong>. Prefira desativar para preservar o histórico.</p>{% endif %}
+{% endblock %}
+{% block object-tools-items %}
+{{ block.super }}
+{% if original and has_delete_permission %}<li><a class="deletelink" href="{% url 'admin:auth_user_delete' original.pk %}">Excluir permanentemente</a></li>{% endif %}
+{% endblock %}
+{% block submit_buttons_bottom %}
+<div class="submit-row">
+{% if has_change_permission or add %}
+<input type="submit" value="Salvar" class="default" name="_save">
+{% endif %}
+<a class="closelink" href="{% url 'admin:auth_user_changelist' %}">Sair sem salvar</a>
+</div>
+{% endblock %}

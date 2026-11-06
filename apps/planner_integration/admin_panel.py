@@ -61,6 +61,35 @@ def graph():
     return GraphClient(token_provider=configured_planner_token_provider())
 
 
+def action_availability(config):
+    """Local preconditions only: never refresh a token or contact Microsoft here."""
+    from .delegated_oauth import _fernet, redirect_uri
+
+    oauth_enabled = settings.MICROSOFT_GRAPH_APPROVED and settings.GRAPH_DELEGATED_OAUTH_ENABLED
+    can_connect = False
+    if oauth_enabled and settings.GRAPH_TENANT_ID and settings.GRAPH_CLIENT_ID:
+        try:
+            _fernet()
+            redirect_uri()
+            can_connect = True
+        except PlannerError:
+            pass
+    remote_ready = False
+    if settings.PLANNER_PLAN_ID == DEMANDAS_PLAN_ID:
+        try:
+            configured_planner_token_provider()
+            remote_ready = settings.GRAPH_AUTH_STRATEGY != 'delegated' or can_connect
+        except PlannerError:
+            pass
+    return {
+        'can_connect': can_connect,
+        'can_query_buckets': remote_ready,
+        'can_save_mapping': bool(config and config.buckets_checked_at and config.buckets),
+        'can_test_task': bool(remote_ready and settings.PLANNER_TEST_ENABLED
+                              and bucket_id('PLANNER_INTAKE_BUCKET_ID')),
+    }
+
+
 @require_GET
 @never_cache
 @administrator
@@ -82,12 +111,16 @@ def panel(request):
         "errors": PlannerTaskProvisioning.objects.exclude(state=PlannerTaskProvisioning.State.CANCELLED).exclude(last_error_code="").values_list("last_error_code", flat=True).distinct()[:10],
         "attempts": PlannerTestAttempt.objects.order_by("-created_at")[:10],
         "test_nonce": request.session["planner_test_nonce"],
+        **action_availability(config),
     })
 
 
 @require_POST
 @administrator
 def refresh_buckets(request):
+    if not action_availability(None)['can_query_buckets']:
+        messages.error(request, "Consulta indisponível. Verifique a autorização Microsoft e a configuração do plano.")
+        return redirect('integrations')
     try:
         buckets = graph().list_plan_buckets(DEMANDAS_PLAN_ID)
         PlannerConfiguration.objects.update_or_create(
@@ -106,7 +139,7 @@ def save_mapping(request):
     with transaction.atomic():
         config = PlannerConfiguration.objects.select_for_update().filter(plan_id=DEMANDAS_PLAN_ID).first()
         form = MappingForm(request.POST, config=config)
-        if config and config.buckets_checked_at and form.is_valid():
+        if action_availability(config)['can_save_mapping'] and form.is_valid():
             config.bucket_mapping = {field: form.cleaned_data[field] for field in BUCKET_FIELDS}
             config.save(update_fields=["bucket_mapping"])
             AccountAudit.objects.create(actor=request.user, action="PLANNER_BUCKET_MAPPING")
@@ -123,7 +156,7 @@ def test_task(request):
     # repeated by refreshing/resubmitting this form. No employee data is used.
     nonce = request.POST.get("nonce", "")
     expected = request.session.get("planner_test_nonce", "")
-    if not (settings.MICROSOFT_GRAPH_APPROVED and settings.PLANNER_TEST_ENABLED):
+    if not action_availability(None)['can_test_task']:
         messages.error(request, "Teste real desabilitado.")
         return redirect("integrations")
     if request.POST.get("confirm") != "CRIAR TAREFA DE TESTE" or not expected or not secrets.compare_digest(nonce, expected):

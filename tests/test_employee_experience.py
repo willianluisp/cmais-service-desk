@@ -67,8 +67,8 @@ def test_success_shows_protocol_and_preserves_attachment_and_history(employee):
     assert ticket.planner_provisioning.state == "PENDING"
     capture("detail-success", response)
     listed = client.get("/chamados/")
-    assert str(category) in listed.content.decode()
-    assert b'<th scope="col">Categoria</th>' in listed.content
+    assert ticket.category.name == 'Atendimento geral'
+    assert b'<th scope="col">Categoria</th>' not in listed.content
     assert b'Ver detalhes' in listed.content
     capture("list", listed)
     capture("dashboard", client.get("/"))

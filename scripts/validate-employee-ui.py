@@ -77,7 +77,7 @@ with sync_playwright() as playwright:
         assert page.locator('input[type="file"]').evaluate("input => input.files.length") == 1
         assert len(posts) == before, "Files were sent before confirmation"
         page.locator('input[name="title"]').fill("Solicitação simulada")
-        page.locator('select[name="category"]').select_option(index=1)
+        assert page.locator('select[name="category"]').count() == 0
         page.locator('textarea[name="description"]').fill("Verificação de interface sem envio real.")
         page.locator("form[data-submit-feedback]").evaluate("form => form.addEventListener('submit', event => event.preventDefault())")
         page.get_by_role("button", name="Abrir chamado", exact=True).click()

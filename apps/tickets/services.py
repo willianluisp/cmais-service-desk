@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Ticket, TicketEvent, TicketSequence
+from .models import Category, Ticket, TicketEvent, TicketSequence
 
 
 def _active(actor):
@@ -13,7 +13,7 @@ def _active(actor):
 
 
 @transaction.atomic
-def create_ticket(*, actor, title, description, category, priority, attachments=None, submission_key=None):
+def create_ticket(*, actor, title, description, category=None, priority, attachments=None, submission_key=None):
     """Persist the intake and durable Planner-provisioning intent only."""
     _active(actor)
     if submission_key:
@@ -25,6 +25,8 @@ def create_ticket(*, actor, title, description, category, priority, attachments=
             if previous.requester_id != actor.pk or previous.archived_at or previous.planner_deleted_at:
                 raise ValidationError("Envio já utilizado. Abra um novo formulário de chamado.")
             return previous
+    if category is None:
+        category, _ = Category.objects.get_or_create(name='Atendimento geral')
     if not category.is_active:
         raise ValidationError("Categoria indisponível.")
     year = timezone.localdate().year

@@ -1,6 +1,10 @@
 :root, html[data-theme="light"], html[data-theme="dark"] {
   --primary: #003a56; --secondary: #003a56; --accent: #ffffff;
   --primary-fg: #ffffff; --body-fg: #003a56; --body-bg: #f3f5f8;
+  --body-quiet-color: #425d70; --body-medium-color: #425d70; --body-loud-color: #003a56;
+  --hairline-color: #dce4eb; --error-fg: #9e2525;
+  --message-success-bg: #e9f2da; --message-warning-bg: #f4edda; --message-error-bg: #fbe9e9;
+  --close-button-bg: #425d70; --close-button-hover-bg: #003a56; color-scheme: light;
   --header-bg: #ffffff; --header-color: #003a56; --header-link-color: #003a56;
   --link-fg: #003a56; --link-hover-color: #002c42; --breadcrumbs-bg: #eaf0f4;
   --breadcrumbs-fg: #425d70; --breadcrumbs-link-fg: #003a56;
@@ -13,9 +17,12 @@ body { font-family: "Segoe UI", sans-serif; line-height: 1.5; }
 .cmais-admin-brand { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .cmais-admin-brand img { display: block; max-width: 100%; height: auto; }
 .cmais-admin-brand span { color: #425d70; font-size: 14px; }
-.cmais-portal-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+.cmais-portal-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 6px; border-bottom: 3px solid #80b21c; background: #003a56; font-weight: 600; white-space: nowrap; }
+#header a.cmais-portal-link:link, #header a.cmais-portal-link:visited { color: #fff; }
+#header a.cmais-portal-link:hover { background: #002c42; }
 .module, .submit-row { border-radius: 8px; overflow: hidden; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #003a56; outline-offset: 3px; }
 #changelist-filter, #changelist .results, .module { background: #ffffff; }
 .theme-toggle { display: none; }
+#id_temporary_password { width: min(100%, 28rem); }
 @media (max-width: 767px) { .cmais-admin-brand { gap: 8px; } .cmais-admin-brand img { width: 160px; } }

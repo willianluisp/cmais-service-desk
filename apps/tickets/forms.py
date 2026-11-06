@@ -2,7 +2,7 @@ import uuid
 
 from django import forms
 
-from .models import Category, Ticket
+from .models import Ticket
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -26,13 +26,11 @@ class TicketForm(forms.ModelForm):
 
     class Meta:
         model = Ticket
-        fields = ["title", "category", "priority", "description"]
+        fields = ["title", "priority", "description"]
         widgets = {"description": forms.Textarea(attrs={"rows": 7})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["category"].queryset = Category.objects.filter(is_active=True)
-        self.fields["category"].empty_label = "Selecione uma categoria"
         self.fields["title"].label = "Assunto"
         self.fields["title"].help_text = "Resuma o que você precisa, por exemplo: Não consigo acessar o sistema."
         self.fields["description"].label = "Descrição da solicitação"

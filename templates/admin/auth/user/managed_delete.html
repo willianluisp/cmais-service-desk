@@ -1,0 +1,5 @@
+{% extends "admin/delete_confirmation.html" %}
+{% block content %}
+<p>Prefira desativar o usuário para preservar a identidade e o histórico. A exclusão permanente só é permitida para contas sem relacionamentos ou auditorias.</p>
+{{ block.super }}
+{% endblock %}

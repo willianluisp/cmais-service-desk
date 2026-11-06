@@ -24,9 +24,6 @@ def _ticket(request, pk):
 @never_cache
 def ticket_list(request):
     tickets = visible_tickets(request.user, Ticket.objects.all())
-    raw_counts = dict(tickets.values("status").annotate(total=Count("pk")).values_list("status", "total"))
-    counts = {key: sum(raw_counts.get(value, 0) for value in values)
-              for key, values in Ticket.PORTAL_STATUS_GROUPS.items()}
     query = request.GET.get("q", "").strip()[:160]
     status = request.GET.get("status", "")
     priority = request.GET.get("priority", "")
@@ -38,6 +35,9 @@ def ticket_list(request):
         status = normalized
     if priority in Ticket.Priority.values:
         tickets = tickets.filter(priority=priority)
+    raw_counts = dict(tickets.order_by().values("status").annotate(total=Count("pk")).values_list("status", "total"))
+    counts = {key: sum(raw_counts.get(value, 0) for value in values)
+              for key, values in Ticket.PORTAL_STATUS_GROUPS.items()}
     page = Paginator(tickets.select_related("category", "requester", "assignee"), 20).get_page(
         request.GET.get("page")
     )
