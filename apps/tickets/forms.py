@@ -31,6 +31,9 @@ class TicketForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from apps.sectors.intake import add_global_fields
+
+        add_global_fields(self)
         self.fields["title"].label = "Assunto"
         self.fields["title"].help_text = "Resuma o que você precisa, por exemplo: Não consigo acessar o sistema."
         self.fields["description"].label = "Descrição da solicitação"

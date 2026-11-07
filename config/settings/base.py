@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.tickets",
+    "apps.custom_forms",
+    "apps.sectors",
     "apps.planner_integration",
     "apps.notifications",
     "apps.audit",

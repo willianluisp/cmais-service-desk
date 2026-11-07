@@ -19,6 +19,7 @@ class DelegatedTokenProvider:
     def __call__(self):
         # Refresh-token rotation can invalidate a concurrent refresh. Serialize it
         # across Celery workers and re-check expiry after acquiring the lock.
+        failed_refresh_ciphertext = None
         try:
             with transaction.atomic():
                 connection = MicrosoftGraphConnection.objects.select_for_update().get(
@@ -26,21 +27,39 @@ class DelegatedTokenProvider:
                 )
                 if connection.access_token_expires_at > timezone.now() + timedelta(seconds=60):
                     return decrypt_token(connection.access_token_encrypted)
+                failed_refresh_ciphertext = connection.refresh_token_encrypted
                 token_data = self.refresher(decrypt_token(connection.refresh_token_encrypted))
                 self._save_refresh(connection, token_data)
                 return token_data["access_token"]
         except MicrosoftGraphConnection.DoesNotExist:
             raise PlannerError("AUTH_REQUIRED", "Autorização Microsoft indisponível.") from None
+        except PlannerError as exc:
+            if exc.code in {"OAUTH_INVALID_GRANT", "OAUTH_INTERACTION_REQUIRED"}:
+                # Persist invalidation outside the rolled-back refresh transaction.
+                # A callback may have reconnected this row since the rollback
+                # released its lock. Only invalidate the generation that failed.
+                MicrosoftGraphConnection.objects.filter(
+                    pk=self.connection_id, is_active=True,
+                    refresh_token_encrypted=failed_refresh_ciphertext,
+                ).update(
+                    is_active=False, access_token_encrypted="", refresh_token_encrypted="",
+                    updated_at=timezone.now(),
+                )
+                raise PlannerError("AUTH_REQUIRED", "Sessão Microsoft expirada ou revogada. Reconecte Microsoft em Integrações.") from None
+            raise
 
     def _refresh(self, refresh_token):
+        from .oauth_configuration import client_secret
+
         values = {
             "client_id": settings.GRAPH_CLIENT_ID,
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
             "redirect_uri": redirect_uri(),
         }
-        if settings.GRAPH_CLIENT_SECRET:
-            values["client_secret"] = settings.GRAPH_CLIENT_SECRET
+        secret = client_secret()
+        if secret:
+            values["client_secret"] = secret
         return _post_form(
             f"https://login.microsoftonline.com/{settings.GRAPH_TENANT_ID}/oauth2/v2.0/token", values
         )

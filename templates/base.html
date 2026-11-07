@@ -34,7 +34,9 @@
         {% endif %}
         {% if is_portal_administrator %}
         <p class="nav-label">ADMINISTRAÇÃO</p>
-        {% if can_manage_users %}<a class="nav-link" href="{% url 'admin:auth_user_changelist' %}">Administração de usuários</a>{% endif %}
+        {% if can_manage_users %}<a class="nav-link" href="{% url 'admin:auth_user_changelist' %}">Administração de usuários</a><a class="nav-link" href="{% url 'admin:auth_group_changelist' %}">Gerenciar grupos</a>{% endif %}
+        <a class="nav-link{% if active_page == 'forms' %} is-active{% endif %}" href="{% url 'custom_forms:manage' %}" {% if active_page == 'forms' %}aria-current="page"{% endif %}>Gerenciar formulários</a>
+        <a class="nav-link{% if active_page == 'sectors' %} is-active{% endif %}" href="{% url 'sectors:manage' %}" {% if active_page == 'sectors' %}aria-current="page"{% endif %}>Gerenciar setores</a>
         <a href="{% url 'integrations' %}" class="nav-link{% if active_page == 'integrations' %} is-active{% endif %}" {% if active_page == 'integrations' %}aria-current="page"{% endif %}>Integrações</a>
         {% endif %}
       </nav>

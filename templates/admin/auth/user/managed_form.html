@@ -1,5 +1,6 @@
 {% extends "admin/change_form.html" %}
 {% block form_top %}
+<p><a href="{% url 'admin:auth_group_changelist' %}">Gerenciar participação em grupos →</a> · Escolha um grupo para adicionar ou remover esta pessoa. Participar de um grupo comum não concede administração.</p>
 {% if add %}<p>Crie uma conta de colaborador. Entregue a senha temporária por um canal seguro; a troca será obrigatória no primeiro acesso.</p>{% else %}<p>Para interromper o acesso, desmarque <strong>Ativo</strong>. Prefira desativar para preservar o histórico.</p>{% endif %}
 {% endblock %}
 {% block object-tools-items %}

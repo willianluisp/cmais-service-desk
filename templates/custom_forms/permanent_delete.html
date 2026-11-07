@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Excluir formulário definitivamente{% endblock %}
+{% block extra_script %}<link rel="stylesheet" href="{% static 'css/forms.css' %}">{% endblock %}
+{% block content %}
+<a href="{% url 'custom_forms:trash' %}" class="form-back">← Lixeira de formulários</a>
+<header class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO · LIXEIRA</p><h1>Excluir definitivamente</h1><p class="lead">{{ definition.title }}</p></header>
+<section class="ticket-section"><h2>Esta exclusão não pode ser desfeita</h2><p>O formulário e sua configuração serão removidos. A auditoria será preservada. Se houver chamados, respostas, anexos vinculados ou outras dependências, a exclusão será bloqueada.</p>
+{% if blockers %}<div class="notice notice-error" role="status"><strong>Exclusão indisponível</strong><ul>{% for blocker in blockers %}<li>{{ blocker }}</li>{% endfor %}</ul><p>Você pode manter o formulário na lixeira ou restaurá-lo como rascunho.</p></div>{% endif %}
+<form method="post" class="ticket-form">{% csrf_token %}{{ form.revision }}
+{% if form.errors %}<div class="notice notice-error error-summary" role="alert" tabindex="-1">{{ form.non_field_errors }}{% for field in form %}{% if field.errors %}<p>{{ field.label }}: {{ field.errors|striptags }}</p>{% endif %}{% endfor %}</div>{% endif %}
+<p>Para confirmar, digite exatamente: <strong>{{ definition.title }}</strong></p>
+<div>{{ form.confirmation_name.as_field_group }}</div><div class="form-delete-confirm">{{ form.confirm.as_field_group }}</div>
+<div class="form-submit-row"><a href="{% url 'custom_forms:trash' %}" class="button button-quiet">Cancelar e voltar</a><button class="button form-permanent-delete" type="submit" {% if blockers %}disabled{% endif %}>Excluir definitivamente</button></div>
+</form></section>
+{% endblock %}

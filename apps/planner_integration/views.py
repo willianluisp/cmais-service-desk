@@ -7,6 +7,7 @@ from django.db import DatabaseError
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.accounts.permissions import is_portal_admin
@@ -44,6 +45,7 @@ OAUTH_CATEGORY_LABELS = {
     "OAUTH_STORAGE_UNAVAILABLE": "armazenamento temporariamente indisponível",
     "AUTH_REQUIRED": "autorização Microsoft incompleta",
     "OAUTH_CONFIGURATION": "configuração OAuth incompleta",
+    "OAUTH_INSUFFICIENT_SCOPE": "permissão Planner insuficiente; solicite ao administrador do Microsoft Entra a revisão do consentimento delegado Tasks.ReadWrite",
 }
 
 
@@ -54,7 +56,8 @@ def _oauth_failure(stage, exc):
     category_label = OAUTH_CATEGORY_LABELS.get(category, "falha de autorização")
     return HttpResponseBadRequest(
         f"Não foi possível concluir a autorização Microsoft. "
-        f"Etapa: {stage_label}. Categoria: {category_label}."
+        f"Etapa: {stage_label}. Categoria: {category_label}. "
+        '<a href="/integracoes/">Voltar a Integrações e tentar novamente</a>.'
     )
 
 
@@ -103,6 +106,7 @@ def _oauth_available(request):
 
 @require_GET
 @login_required
+@never_cache
 def connect_microsoft(request):
     """Start delegated OAuth through a same-origin navigation and HTTP redirect."""
     if not _oauth_available(request):
@@ -118,14 +122,28 @@ def connect_microsoft(request):
 
 
 @require_GET
-@login_required
+@never_cache
+@sensitive_variables()
 def microsoft_callback(request):
+    if not request.user.is_authenticated:
+        return HttpResponseBadRequest(
+            'Sua sessão local expirou. <a href="/integracoes/">Entre no portal e conecte Microsoft novamente</a>.'
+        )
     if not _oauth_available(request):
         return JsonResponse({"detail": "Integração Microsoft não está aprovada."}, status=403)
+    from .oauth_configuration import readiness
+
+    if not readiness()['can_connect']:
+        return JsonResponse({"detail": "Configuração OAuth Microsoft indisponível."}, status=503)
     verifier = consume_state(request, request.GET.get("state"))
     code = request.GET.get("code")
-    if not verifier or not isinstance(code, str) or not code or request.GET.get("error"):
-        return HttpResponseBadRequest("Autorização Microsoft não foi concluída.")
+    retry = '<a href="/integracoes/">Voltar a Integrações e tentar novamente</a>.'
+    if not verifier:
+        return HttpResponseBadRequest(f"Sessão de autorização inválida ou expirada. {retry}")
+    if request.GET.get("error"):
+        return HttpResponseBadRequest(f"Login ou consentimento Microsoft não concluído. Se a organização exigir aprovação, solicite-a ao administrador do Microsoft Entra. {retry}")
+    if not isinstance(code, str) or not code:
+        return HttpResponseBadRequest(f"Autorização Microsoft não foi concluída. {retry}")
     try:
         token_data = exchange_authorization_code(code=code, code_verifier=verifier)
     except PlannerError as exc:
@@ -149,4 +167,5 @@ def microsoft_callback(request):
             "token_storage",
             PlannerError("OAUTH_STORAGE_UNAVAILABLE", "Armazenamento indisponível."),
         )
+    messages.success(request, "Microsoft conectado. A conexão não habilita criação automática de tarefas, sincronização periódica ou publicação de anexos.")
     return redirect("integrations")

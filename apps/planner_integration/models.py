@@ -61,6 +61,16 @@ class PlannerTaskProvisioning(models.Model):
         indexes = [models.Index(fields=["state", "available_at"], name="planner_prov_ready_idx")]
 
 
+class MicrosoftOAuthConfiguration(models.Model):
+    """Local confidential-client credential; never an approval or feature flag."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    tenant_id = models.CharField(max_length=64)
+    client_id = models.CharField(max_length=255)
+    client_secret_encrypted = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class MicrosoftGraphConnection(models.Model):
     """One explicitly selected delegated Microsoft account for Planner work.
 

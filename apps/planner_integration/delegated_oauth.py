@@ -7,13 +7,14 @@ import secrets
 import time
 from datetime import timedelta
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, build_opener
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 
 from .client import NoRedirect, PlannerError
 from .models import MicrosoftGraphConnection
@@ -38,7 +39,14 @@ def requested_scopes():
 
 def redirect_uri():
     base_url = getattr(settings, "PORTAL_BASE_URL", "").rstrip("/")
-    if not base_url.startswith(("http://", "https://")):
+    try:
+        parsed = urlsplit(base_url)
+        valid = (parsed.scheme == "https" or (
+            parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        )) and parsed.hostname and not (parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path)
+    except ValueError:
+        valid = False
+    if not valid:
         raise PlannerError("OAUTH_CONFIGURATION", "Configuração OAuth Microsoft inválida.")
     return f"{base_url}/integracoes/microsoft/callback/"
 
@@ -76,6 +84,9 @@ def authorization_url(request):
         "state": state,
         "code_verifier": verifier,
         "created_at": int(time.time()),
+        "tenant_id": settings.GRAPH_TENANT_ID,
+        "client_id": settings.GRAPH_CLIENT_ID,
+        "redirect_uri": redirect_uri(),
     }
     request.session.modified = True
     return "https://login.microsoftonline.com/" + quote(tenant_id, safe="") + "/oauth2/v2.0/authorize?" + urlencode({
@@ -96,13 +107,18 @@ def consume_state(request, state):
         return None
     created_at = pending.get("created_at")
     expected = pending.get("state")
-    if not isinstance(created_at, int) or time.time() - created_at > STATE_TTL_SECONDS:
+    if not isinstance(created_at, int) or not 0 <= time.time() - created_at <= STATE_TTL_SECONDS:
+        return None
+    if (pending.get("tenant_id") != settings.GRAPH_TENANT_ID
+            or pending.get("client_id") != settings.GRAPH_CLIENT_ID
+            or pending.get("redirect_uri") != redirect_uri()):
         return None
     if not isinstance(expected, str) or not secrets.compare_digest(expected, state):
         return None
     return pending.get("code_verifier") if isinstance(pending.get("code_verifier"), str) else None
 
 
+@sensitive_variables()
 def _post_form(url, values, *, opener=None):
     request = Request(
         url,
@@ -133,7 +149,9 @@ def _post_form(url, values, *, opener=None):
         raise PlannerError("OAUTH_INVALID_RESPONSE", "Resposta de token Microsoft inválida.") from None
 
 
+@sensitive_variables()
 def exchange_authorization_code(*, code, code_verifier, opener=None):
+    from .oauth_configuration import client_secret
     client_id = getattr(settings, "GRAPH_CLIENT_ID", "")
     tenant_id = getattr(settings, "GRAPH_TENANT_ID", "")
     if not client_id or not tenant_id or not code or not code_verifier:
@@ -146,7 +164,7 @@ def exchange_authorization_code(*, code, code_verifier, opener=None):
         "code_verifier": code_verifier,
         "scope": " ".join(requested_scopes()),
     }
-    secret = getattr(settings, "GRAPH_CLIENT_SECRET", "")
+    secret = client_secret()
     if secret:
         values["client_secret"] = secret
     data = _post_form(
@@ -185,6 +203,7 @@ def microsoft_identity(access_token, *, opener=None):
     return data
 
 
+@sensitive_variables()
 def store_connection(*, user, tenant_id, microsoft_user_id, microsoft_user_principal_name, token_data):
     access_token = token_data.get("access_token") if isinstance(token_data, dict) else None
     refresh_token = token_data.get("refresh_token") if isinstance(token_data, dict) else None
@@ -194,9 +213,9 @@ def store_connection(*, user, tenant_id, microsoft_user_id, microsoft_user_princ
         expires_in = 0
     if not isinstance(access_token, str) or not isinstance(refresh_token, str) or expires_in < 60:
         raise PlannerError("AUTH_REQUIRED", "Autorização Microsoft incompleta; autorize novamente.")
-    scopes = token_data.get("scope", " ".join(SCOPES))
+    scopes = token_data.get("scope", "")
     if not isinstance(scopes, str) or "Tasks.ReadWrite" not in scopes.split():
-        raise PlannerError("AUTH_REQUIRED", "Permissão Planner ausente na conta Microsoft autorizada.")
+        raise PlannerError("OAUTH_INSUFFICIENT_SCOPE", "Permissão Planner ausente na conta Microsoft autorizada.")
     with transaction.atomic():
         existing_identity = (
             MicrosoftGraphConnection.objects.select_for_update()

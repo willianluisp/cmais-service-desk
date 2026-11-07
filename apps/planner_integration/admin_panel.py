@@ -12,6 +12,7 @@ from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.accounts.models import AccountAudit
@@ -22,10 +23,12 @@ from .configuration import BUCKET_FIELDS, bucket_id
 from .models import (
     DEMANDAS_PLAN_ID,
     MicrosoftGraphConnection,
+    MicrosoftOAuthConfiguration,
     PlannerConfiguration,
     PlannerTaskProvisioning,
     PlannerTestAttempt,
 )
+from .oauth_configuration import readiness
 
 
 def administrator(view):
@@ -63,17 +66,8 @@ def graph():
 
 def action_availability(config):
     """Local preconditions only: never refresh a token or contact Microsoft here."""
-    from .delegated_oauth import _fernet, redirect_uri
-
-    oauth_enabled = settings.MICROSOFT_GRAPH_APPROVED and settings.GRAPH_DELEGATED_OAUTH_ENABLED
-    can_connect = False
-    if oauth_enabled and settings.GRAPH_TENANT_ID and settings.GRAPH_CLIENT_ID:
-        try:
-            _fernet()
-            redirect_uri()
-            can_connect = True
-        except PlannerError:
-            pass
+    connection_readiness = readiness()
+    can_connect = connection_readiness['can_connect']
     remote_ready = False
     if settings.PLANNER_PLAN_ID == DEMANDAS_PLAN_ID:
         try:
@@ -82,7 +76,7 @@ def action_availability(config):
         except PlannerError:
             pass
     return {
-        'can_connect': can_connect,
+        **connection_readiness,
         'can_query_buckets': remote_ready,
         'can_save_mapping': bool(config and config.buckets_checked_at and config.buckets),
         'can_test_task': bool(remote_ready and settings.PLANNER_TEST_ENABLED
@@ -101,6 +95,7 @@ def panel(request):
     request.session.setdefault("planner_test_nonce", secrets.token_urlsafe(32))
     return render(request, "portal/integrations.html", {
         "active_page": "integrations", "connection": connection,
+        "oauth_secret_form": OAuthSecretForm(),
         "access_expired": connection and connection.access_token_expires_at <= timezone.now(),
         "oauth_enabled": settings.MICROSOFT_GRAPH_APPROVED and settings.GRAPH_DELEGATED_OAUTH_ENABLED,
         "planner_enabled": settings.PLANNER_ENABLED and settings.MICROSOFT_GRAPH_APPROVED,
@@ -113,6 +108,51 @@ def panel(request):
         "test_nonce": request.session["planner_test_nonce"],
         **action_availability(config),
     })
+
+
+class OAuthSecretForm(forms.Form):
+    client_secret = forms.CharField(
+        label="Valor do Client Secret", max_length=4096, strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+
+@require_POST
+@never_cache
+@administrator
+@sensitive_post_parameters("client_secret")
+@sensitive_variables()
+def configure_oauth(request):
+    from .delegated_oauth import encrypt_token
+
+    form = OAuthSecretForm(request.POST)
+    if not readiness()['can_configure_secret'] or not form.is_valid():
+        messages.error(request, "Não foi possível salvar o segredo. Confira os pré-requisitos da configuração inicial.")
+        return redirect("integrations")
+    with transaction.atomic():
+        MicrosoftOAuthConfiguration.objects.update_or_create(pk=1, defaults={
+            "tenant_id": settings.GRAPH_TENANT_ID, "client_id": settings.GRAPH_CLIENT_ID,
+            "client_secret_encrypted": encrypt_token(form.cleaned_data["client_secret"]),
+        })
+        AccountAudit.objects.create(actor=request.user, action="MICROSOFT_OAUTH_CONFIGURED")
+    messages.success(request, "Segredo salvo com criptografia. As aprovações de segurança e permissões corporativas não foram alteradas.")
+    return redirect("integrations")
+
+
+@require_POST
+@never_cache
+@administrator
+def disconnect_microsoft(request):
+    from .delegated_oauth import SESSION_KEY
+
+    with transaction.atomic():
+        MicrosoftGraphConnection.objects.filter(is_active=True).update(
+            is_active=False, access_token_encrypted="", refresh_token_encrypted="", updated_at=timezone.now(),
+        )
+        AccountAudit.objects.create(actor=request.user, action="MICROSOFT_DISCONNECTED")
+    request.session.pop(SESSION_KEY, None)
+    messages.success(request, "Conta Microsoft desconectada deste portal. Para conectar novamente, use Conectar Microsoft. O consentimento corporativo permanece sob gestão do Microsoft Entra.")
+    return redirect("integrations")
 
 
 @require_POST

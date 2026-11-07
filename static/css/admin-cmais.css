@@ -18,6 +18,9 @@ body { font-family: "Segoe UI", sans-serif; line-height: 1.5; }
 .cmais-admin-brand img { display: block; max-width: 100%; height: auto; }
 .cmais-admin-brand span { color: #425d70; font-size: 14px; }
 .cmais-portal-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 6px; border-bottom: 3px solid #80b21c; background: #003a56; font-weight: 600; white-space: nowrap; }
+.cmais-portal-link[aria-label] { flex-wrap: wrap; gap: 8px; white-space: normal; }
+#header .cmais-portal-link a:link, #header .cmais-portal-link a:visited { color: #fff; padding: 10px 4px; }
+#header .cmais-portal-link a:hover { text-decoration: underline; }
 #header a.cmais-portal-link:link, #header a.cmais-portal-link:visited { color: #fff; }
 #header a.cmais-portal-link:hover { background: #002c42; }
 .module, .submit-row { border-radius: 8px; overflow: hidden; }

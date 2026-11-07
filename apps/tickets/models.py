@@ -79,6 +79,9 @@ class Ticket(models.Model):
     sync_state = models.CharField(max_length=10, choices=SyncState, default=SyncState.DISABLED)
     sync_error_code = models.CharField(max_length=80, blank=True)
     version = models.PositiveIntegerField(default=1)
+    is_sensitive = models.BooleanField(default=False, db_index=True)
+    restricted_groups = models.ManyToManyField("auth.Group", blank=True, related_name="restricted_tickets")
+    approver_groups = models.ManyToManyField("auth.Group", blank=True, related_name="approval_tickets")
 
     class Meta:
         ordering = ["-created_at", "-id"]
@@ -179,6 +182,14 @@ class TicketDeletionAudit(models.Model):
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     action = models.CharField(max_length=30)
     details = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class SensitiveTicketApproval(models.Model):
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name="sensitive_approval")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    approver_name_snapshot = models.CharField(max_length=300)
+    reference = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
 

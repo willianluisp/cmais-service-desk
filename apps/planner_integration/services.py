@@ -85,6 +85,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
     for _ in range(limit):
         with transaction.atomic():
             ready = PlannerTaskProvisioning.objects.filter(
+                ticket__is_sensitive=False,
                 ticket__planner_deleted_at__isnull=True,
                 ticket__archived_at__isnull=True,
                 state__in=[PlannerTaskProvisioning.State.PENDING, PlannerTaskProvisioning.State.RECONCILIATION],
@@ -342,6 +343,8 @@ def sync_ticket(*, actor, ticket_id, graph_client=None):
     original = visible_tickets(actor, Ticket.objects.all()).filter(pk=ticket_id).first()
     if original is None:
         raise Http404
+    if original.is_sensitive:
+        raise PlannerError("SENSITIVE_TICKET", "Solicitação sensível disponível somente no portal restrito.", status=403)
     if original.planner_deleted_at:
         raise PlannerError('TASK_NOT_LINKED', 'A tarefa foi removida no Planner; o chamado foi restaurado somente no portal.', status=409)
     graph_client = graph_client or configured_read_client()

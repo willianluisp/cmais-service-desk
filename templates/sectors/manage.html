@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar setores{% endblock %}
+{% block content %}
+<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Gerenciar setores</h1><p class="lead">Organize os setores disponíveis na abertura de chamados.</p><a class="button button-primary" href="{% url 'sectors:create' %}">Novo setor</a></div>
+<section class="ticket-section" aria-label="Setores cadastrados">
+{% for sector in sectors %}
+<article class="ticket-section"><h2>{{ sector.name }}</h2><p>{% if sector.is_active %}Ativo{% else %}Inativo{% endif %} · Ordem: {{ sector.display_order }}</p><div class="form-actions"><a class="button button-secondary" href="{% url 'sectors:edit' sector.pk %}">Editar setor</a><a class="button button-quiet" href="{% url 'sectors:delete' sector.pk %}">Excluir setor</a></div></article>
+{% empty %}<p>Nenhum setor cadastrado. Cadastre o primeiro setor para disponibilizá-lo nos novos chamados.</p>{% endfor %}
+</section>
+{% endblock %}

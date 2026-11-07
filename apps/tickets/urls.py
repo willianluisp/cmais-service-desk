@@ -10,6 +10,7 @@ urlpatterns = [
     path('chamados/<uuid:pk>/excluir-permanentemente/', lifecycle_views.permanent_delete, name='permanent-delete'),
     path("chamados/", views.ticket_list, name="list"),
     path("chamados/novo/", views.ticket_create, name="create"),
+    path("chamados/novo/suporte/", views.ticket_create, {"standard": True}, name="standard-create"),
     path("chamados/<uuid:pk>/", views.ticket_detail, name="detail"),
     path("chamados/<uuid:pk>/anexos/<uuid:attachment_id>/", views.attachment_download,
          name="attachment"),

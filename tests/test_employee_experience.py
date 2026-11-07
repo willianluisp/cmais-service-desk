@@ -27,7 +27,7 @@ def employee(client, django_user_model, settings, tmp_path):
 
 def test_empty_form_has_instructions_and_accessible_uploads(employee):
     client, _, _ = employee
-    response = client.get("/chamados/novo/")
+    response = client.get("/chamados/novo/suporte/")
     assert response.status_code == 200
     assert b'id="id_title_helptext"' in response.content
     assert b'aria-describedby="id_title_helptext"' in response.content
@@ -48,9 +48,10 @@ def test_empty_post_shows_errors_without_creating_ticket(employee):
     capture("create-errors", response)
 
 
-def test_success_shows_protocol_and_preserves_attachment_and_history(employee):
+def test_success_shows_protocol_and_preserves_attachment_and_history(employee, intake_data):
     client, owner, category = employee
     response = client.post("/chamados/novo/", {
+        **intake_data,
         "title": "Não consigo acessar o sistema de trabalho", "description": "O acesso apresentou uma mensagem de erro nesta manhã.",
         "category": category.pk, "priority": "NORMAL",
         "attachments": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),

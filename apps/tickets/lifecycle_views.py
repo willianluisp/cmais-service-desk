@@ -13,6 +13,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from .lifecycle import archive_ticket, authorize, permanently_delete_ticket, restore_ticket
 from .models import Ticket
+from .permissions import authorized_tickets
 
 
 class PermanentDeletionForm(forms.Form):
@@ -28,7 +29,7 @@ class PermanentDeletionForm(forms.Form):
 def archived(request):
     authorize(request.user)
     query = request.GET.get('q', '').strip()[:160]
-    tickets = Ticket.objects.filter(archived_at__isnull=False)
+    tickets = authorized_tickets(request.user, Ticket.objects.filter(archived_at__isnull=False))
     if query:
         tickets = tickets.filter(number__icontains=query)
     return render(request, 'tickets/archived.html', {'page_obj': Paginator(tickets, 20).get_page(request.GET.get('page')), 'q': query})
@@ -61,7 +62,7 @@ def restore(request, pk):
 @require_http_methods(['GET', 'POST'])
 def permanent_delete(request, pk):
     authorize(request.user)
-    ticket = get_object_or_404(Ticket, pk=pk, archived_at__isnull=False)
+    ticket = get_object_or_404(authorized_tickets(request.user, Ticket.objects.all()), pk=pk, archived_at__isnull=False)
     session_key = f'ticket_delete:{pk}'
     if request.method == 'GET':
         token = secrets.token_urlsafe(32)

@@ -166,12 +166,12 @@ def test_counts_match_filtered_visible_results(client, django_user_model, admin,
         assert count == sum(Ticket.portal_status_for(ticket.status) == key for ticket in rows)
 
 
-def test_category_is_internal_and_client_cannot_override_it(client, django_user_model):
+def test_category_is_internal_and_client_cannot_override_it(client, django_user_model, intake_data):
     user = django_user_model.objects.create_user('category.synthetic')
     old = Category.objects.create(name='Homologação')
     client.force_login(user)
     assert b'name="category"' not in client.get('/chamados/novo/').content
-    response = client.post('/chamados/novo/', dict(title='Solicitação', description='Sem categoria',
+    response = client.post('/chamados/novo/', dict(**intake_data, title='Solicitação', description='Sem categoria',
                                                 priority='NORMAL', category=old.pk))
     assert response.status_code == 302
     ticket = Ticket.objects.get()
@@ -182,11 +182,11 @@ def test_category_is_internal_and_client_cannot_override_it(client, django_user_
     assert ticket.planner_provisioning.state == 'PENDING'
 
 
-def test_internal_category_is_not_reactivated_silently(client, django_user_model):
+def test_internal_category_is_not_reactivated_silently(client, django_user_model, intake_data):
     user = django_user_model.objects.create_user('category.inactive')
     Category.objects.create(name='Atendimento geral', is_active=False)
     client.force_login(user)
-    response = client.post('/chamados/novo/', dict(title='Teste', description='Teste', priority='NORMAL'))
+    response = client.post('/chamados/novo/', dict(**intake_data, title='Teste', description='Teste', priority='NORMAL'))
     assert response.status_code == 200 and not Ticket.objects.exists()
 
 
@@ -305,7 +305,7 @@ def test_integration_capabilities_match_backend(client, manager, settings, monke
     graph.assert_not_called()
     assert response.context['can_query_buckets'] == approved
     assert response.context['can_test_task'] == approved
-    assert response.context['can_connect'] == approved
+    assert response.context['can_connect'] == (approved and strategy == 'delegated')
     client.post('/integracoes/microsoft/buckets/')
     assert graph.called == approved
 

@@ -13,6 +13,12 @@ from apps.planner_integration.delegated_oauth import (
 )
 
 
+@pytest.fixture(autouse=True)
+def delegated_web_application(settings):
+    settings.GRAPH_AUTH_STRATEGY = "delegated"
+    settings.GRAPH_CLIENT_SECRET = "synthetic-secret"
+
+
 @pytest.mark.django_db
 @override_settings(
     MICROSOFT_GRAPH_APPROVED=True,
@@ -153,6 +159,7 @@ class RejectingTokenOpener:
     GRAPH_CLIENT_SECRET="client-secret",
     PORTAL_BASE_URL="http://localhost:8010",
 )
+@pytest.mark.django_db
 def test_token_exchange_categorizes_invalid_client_without_leaking_provider_details():
     provider_payload = b'{"error":"invalid_client","error_description":"secret-value-must-not-leak"}'
 
@@ -271,7 +278,8 @@ def test_delegated_provider_refreshes_and_never_stores_plaintext(django_user_mod
         tenant_id="tenant-id",
         microsoft_user_id="entra-user-id",
         microsoft_user_principal_name="planner@example.test",
-        token_data={"access_token": "old-access", "refresh_token": "refresh-token", "expires_in": 60},
+        token_data={"access_token": "old-access", "refresh_token": "refresh-token", "expires_in": 60,
+                    "scope": "User.Read Tasks.ReadWrite"},
     )
     connection.refresh_from_db()
     assert "old-access" not in connection.access_token_encrypted

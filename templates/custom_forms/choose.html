@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Novo chamado{% endblock %}
+{% block extra_script %}<link rel="stylesheet" href="{% static 'css/forms.css' %}">{% endblock %}
+{% block content %}
+<header class="page-heading"><p class="eyebrow">ESPAÇO DO COLABORADOR</p><h1>Como podemos ajudar?</h1><p class="lead">Escolha o tipo de solicitação para abrir seu chamado.</p></header>
+<div class="request-cards">{% for card in cards %}<a class="request-card{% if card.standard %} request-card-standard{% endif %}" href="{% if card.standard %}{% url 'tickets:standard-create' %}{% else %}{% url 'custom_forms:request' card.id %}{% endif %}"><span class="request-card-icon" aria-hidden="true">{{ card.symbol }}</span><span class="request-card-copy">{% if card.standard %}<span class="eyebrow">SUPORTE C+</span>{% endif %}<h2>{{ card.title }}</h2><p>{{ card.description|truncatechars:170 }}</p></span><span class="request-card-arrow" aria-hidden="true">→</span></a>{% empty %}<div class="ticket-section empty-state"><h2>Nenhuma solicitação disponível</h2><p>Entre em contato com o administrador para verificar as publicações e seu acesso.</p></div>{% endfor %}</div>
+<p class="helptext">Depois do envio, acompanhe o atendimento em Meus chamados.</p>
+{% endblock %}

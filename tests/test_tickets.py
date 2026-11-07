@@ -134,9 +134,10 @@ def test_planner_management_routes_are_not_exposed(ticket, people):
 
 
 @override_settings(ROOT_URLCONF="tests.urls_tickets")
-def test_create_ignores_forged_owner_and_status(client, ticket, people):
+def test_create_ignores_forged_owner_and_status(client, ticket, people, intake_data):
     client.force_login(people[1])
     response = client.post("/chamados/novo/", {
+        **intake_data,
         "title": "Forjado", "description": "<script>alert(1)</script>",
         "category": ticket.category_id, "priority": "NORMAL", "requester": people[0].pk,
         "status": "FECHADO",

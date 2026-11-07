@@ -1,5 +1,11 @@
 # C+ Service Desk
 
+Formulários: [evolução, setores oficiais, ordenação e provisionamento](docs/forms-evolution.md).
+Setor e localização são obrigatórios nas novas aberturas; a empresa cadastra os setores
+pela interface. Desligamentos usam acesso por grupos explicitamente autorizados e aprovação
+no portal, sem Planner/e-mail ou alterações externas automáticas. As regras dos chamados
+comuns permanecem como descritas abaixo. Migrations e provisionamento aguardam autorização.
+
 Homologação completa sem Microsoft real: [cenários, isolamento PostgreSQL e resultados](docs/homologation-simulated.md).
 
 Acompanhamento do colaborador: **Aberto**, **Em andamento**, **Finalizado**, com
@@ -153,6 +159,12 @@ Referências técnicas verificadas em 27/10/2026:
 [readiness no Compose](https://docs.docker.com/compose/how-tos/startup-order/).
 
 ## Ambiente isolado
+
+O [construtor de formulários personalizados](docs/custom-forms.md) permite criar,
+publicar e organizar solicitações pelo portal, com respostas e snapshots por chamado.
+Consulte as migrations aditivas pendentes antes da implantação.
+O [fluxo simplificado Microsoft](docs/microsoft-simple-connect.md) documenta a configuração
+inicial protegida, aprovações e conexão/reconexão pelo navegador.
 
 O fluxo de autenticação local, importação aprovada e troca obrigatória de senha
 está descrito em [primeiro acesso de homologação](docs/first-access-homologation.md).

@@ -92,12 +92,13 @@ def environment(settings, monkeypatch, tmp_path, django_user_model):
 
 
 @pytest.mark.parametrize("mode", ["throttle", "timeout", "details"])
-def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, settings, mode):
+def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, settings, mode, intake_data):
     owner, other, technician, category, client = environment
     simulator = MicrosoftSimulator(mode)
-    client.get("/chamados/novo/")
+    client.get("/chamados/novo/suporte/")
     csrf = client.cookies[settings.CSRF_COOKIE_NAME].value
     response = client.post("/chamados/novo/", {
+        **intake_data,
         "title": "[SIMULAÇÃO] Estação sem acesso", "description": "Solicitação descartável sem dados reais.",
         "category": category.pk, "priority": "NORMAL",
         "attachments": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),

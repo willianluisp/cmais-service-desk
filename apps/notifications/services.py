@@ -39,6 +39,8 @@ def enqueue_event(event):
     if event.is_internal:
         return []
     ticket = event.ticket
+    if ticket.is_sensitive:
+        return []
     from apps.tickets.models import Ticket
 
     if event.event_type == "CREATED":
@@ -84,6 +86,8 @@ def enqueue_event(event):
 
 
 def deliver_local(notice):
+    if (notice.ticket_id and notice.ticket.is_sensitive) or (notice.event_id and notice.event.ticket.is_sensitive):
+        raise ProviderDisabled
     if not (settings.EMAIL_ENABLED and settings.MICROSOFT_GRAPH_APPROVED):
         raise ProviderDisabled
     provider = getattr(settings, "NOTIFICATIONS_PROVIDER", "console")
@@ -113,6 +117,8 @@ def deliver_local(notice):
 
 def deliver_graph(notice, *, opener=None):
     """Submit through Outlook/Graph; HTTP 202 means accepted, not delivered."""
+    if (notice.ticket_id and notice.ticket.is_sensitive) or (notice.event_id and notice.event.ticket.is_sensitive):
+        raise ProviderDisabled
     if not (
         getattr(settings, "EMAIL_ENABLED", False)
         and getattr(settings, "MICROSOFT_GRAPH_APPROVED", False)
@@ -184,8 +190,8 @@ def process_pending(*, limit=50, provider=None):
                 from apps.tickets.models import Ticket
 
                 ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
-                if ticket is None or ticket.archived_at:
-                    ready.filter(pk=candidate.pk).update(state='FAILED', last_error_code='TICKET_ARCHIVED')
+                if ticket is None or ticket.archived_at or ticket.is_sensitive:
+                    ready.filter(pk=candidate.pk).update(state='FAILED', last_error_code='SENSITIVE_TICKET' if ticket and ticket.is_sensitive else 'TICKET_ARCHIVED')
                     continue
             notice = ready.select_for_update().filter(pk=candidate.pk).first()
             if notice is None:

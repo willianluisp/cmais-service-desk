@@ -24,7 +24,9 @@ def authorize(actor):
 def locked_ticket(actor, ticket_id):
     authorize(actor)
     ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
-    if ticket is None:
+    from .permissions import authorized_tickets
+
+    if ticket is None or not authorized_tickets(actor, Ticket.objects.filter(pk=ticket_id)).exists():
         raise Http404
     return ticket
 

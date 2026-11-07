@@ -13,18 +13,25 @@ def _active(actor):
 
 
 @transaction.atomic
-def create_ticket(*, actor, title, description, category=None, priority, attachments=None, submission_key=None):
+def create_ticket(*, actor, title, description, category=None, priority, attachments=None, submission_key=None,
+                  sector=None, service_location=None, is_sensitive=False, restricted_group_ids=(), approver_group_ids=()):
     """Persist the intake and durable Planner-provisioning intent only."""
     _active(actor)
     if submission_key:
         # Serialize browser resubmissions for this requester, before allocating
         # a protocol, writing files or adding outbox records.
-        get_user_model().objects.select_for_update().get(pk=actor.pk)
+        get_user_model().objects.select_for_update(no_key=True).get(pk=actor.pk)
         previous = Ticket.objects.filter(submission_key=submission_key).first()
         if previous:
             if previous.requester_id != actor.pk or previous.archived_at or previous.planner_deleted_at:
                 raise ValidationError("Envio já utilizado. Abra um novo formulário de chamado.")
             return previous
+    if sector is not None:
+        from apps.sectors.models import Sector
+
+        sector = Sector.objects.select_for_update().filter(pk=sector.pk, is_active=True).first()
+        if sector is None:
+            raise ValidationError({"sector": "Selecione um setor ativo."})
     if category is None:
         category, _ = Category.objects.get_or_create(name='Atendimento geral')
     if not category.is_active:
@@ -36,21 +43,36 @@ def create_ticket(*, actor, title, description, category=None, priority, attachm
     ticket = Ticket(
         number=f"C+{year}-{counter.value:06d}", requester=actor, title=title,
         description=description, category=category, priority=priority,
-        sync_state=Ticket.SyncState.PENDING,
+        sync_state=Ticket.SyncState.DISABLED if is_sensitive else Ticket.SyncState.PENDING,
         submission_key=submission_key,
+        is_sensitive=is_sensitive,
     )
     ticket.full_clean()
     ticket.save(force_insert=True)
+    if is_sensitive:
+        access_group_ids = set(restricted_group_ids) | set(approver_group_ids)
+        if not access_group_ids:
+            raise ValidationError("Solicitação sensível exige grupos explícitos de acesso.")
+        ticket.restricted_groups.set(access_group_ids)
+    context_payload = {}
+    if sector is not None or service_location is not None:
+        from apps.sectors.intake import save_intake_context
+
+        context = save_intake_context(ticket=ticket, sector=sector, service_location=service_location)
+        context_payload = {"intake_context": {"sector_id": context.sector_id,
+            "sector_name": context.sector_name_snapshot, "service_location": context.service_location}}
     event = TicketEvent.objects.create(
         ticket=ticket, actor=actor, event_type="CREATED", origin=TicketEvent.Origin.PORTAL,
         summary="Chamado aberto pelo solicitante.",
+        payload=context_payload,
         idempotency_key=f"portal:{ticket.pk}:created",
     )
     from apps.notifications.services import enqueue_event
     from apps.planner_integration.models import PlannerTaskProvisioning
 
-    PlannerTaskProvisioning.objects.create(ticket=ticket)
-    enqueue_event(event)
+    if not is_sensitive:
+        PlannerTaskProvisioning.objects.create(ticket=ticket)
+        enqueue_event(event)
     for attachment in attachments or []:
         from .uploads import save_attachment
 

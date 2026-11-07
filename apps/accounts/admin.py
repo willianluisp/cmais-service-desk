@@ -1,6 +1,8 @@
+from django import forms
 from django.contrib import messages
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_user_model
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.admin import GroupAdmin, UserAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -13,6 +15,75 @@ from apps.core.admin import portal_admin
 from .admin_forms import ManagedPasswordChangeForm, ManagedUserCreationForm, ManagedUserForm
 from .models import AccountAudit, LocalAccount
 from .permissions import USER_MANAGER_LOGIN, is_user_management_admin
+
+
+class ManagedGroupForm(forms.ModelForm):
+    users = forms.ModelMultipleChoiceField(
+        queryset=get_user_model().objects.order_by('username'), required=False,
+        label='Pessoas deste grupo',
+        help_text='Selecione as pessoas que terão os acessos deste grupo. Remover alguém do grupo não exclui a conta.',
+        widget=FilteredSelectMultiple('usuários', is_stacked=False),
+    )
+
+    class Meta:
+        model = Group
+        fields = ('name',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['users'].initial = self.instance.user_set.all()
+        if self.instance.name == 'ADMIN_PORTAL':
+            self.fields['users'].disabled = True
+            self.fields['users'].help_text = 'Para conceder ou retirar administração, edite a pessoa em Usuários. As proteções da conta serão verificadas lá.'
+
+    def clean_name(self):
+        name = self.cleaned_data['name']
+        if self.instance.pk and self.instance.name == 'ADMIN_PORTAL' and name != 'ADMIN_PORTAL':
+            raise forms.ValidationError('O grupo administrativo do portal não pode ser renomeado.')
+        return name
+
+
+class ManagedGroupAdmin(GroupAdmin):
+    form = ManagedGroupForm
+    change_form_template = 'admin/auth/group/managed_form.html'
+    add_form_template = 'admin/auth/group/managed_form.html'
+    fieldsets = ((None, {'fields': ('name', 'users', 'access_summary')}),)
+    readonly_fields = ('access_summary',)
+    actions = None
+
+    def access_summary(self, obj):
+        if not obj or not obj.pk:
+            return 'Salve o grupo e escolha os formulários em Gerenciar formulários.'
+        from apps.custom_forms.models import FormDefinition
+
+        names = FormDefinition.objects.filter(allowed_groups=obj, trashed_at__isnull=True).values_list('title', flat=True)
+        forms_text = ', '.join(names) or 'Nenhum formulário com acesso específico para este grupo.'
+        permissions = ', '.join(str(p) for p in obj.permissions.all()) or 'Nenhuma permissão adicional.'
+        role = ('Administra chamados, formulários e integrações.' if obj.name == 'ADMIN_PORTAL'
+                else 'Não concede administração do portal por si só.')
+        return f'{role} Formulários: {forms_text} Permissões adicionais: {permissions}'
+
+    access_summary.short_description = 'Acessos do grupo'
+
+    def has_module_permission(self, request):
+        return is_user_management_admin(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_add_permission(self, request):
+        return self.has_module_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self.has_module_permission(request) and (obj is None or obj.name != 'ADMIN_PORTAL')
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.user_set.set(form.cleaned_data['users'])
 
 
 class EmployeeAdmin(UserAdmin):
@@ -172,3 +243,4 @@ class EmployeeAdmin(UserAdmin):
 
 
 portal_admin.register(get_user_model(), EmployeeAdmin)
+portal_admin.register(Group, ManagedGroupAdmin)

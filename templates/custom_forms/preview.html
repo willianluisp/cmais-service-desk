@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Prévia do formulário{% endblock %}
+{% block extra_script %}<link rel="stylesheet" href="{% static 'css/forms.css' %}">{% endblock %}
+{% block content %}<div class="notice" role="status">Prévia do rascunho · nenhum chamado será criado. Volte à aba do editor para continuar.</div>{% if editor_errors %}<div class="notice notice-error">Corrija os campos no editor para visualizar a prévia.{{ editor_errors }}</div>{% else %}<header class="page-heading compact"><p class="eyebrow">PRÉVIA DO COLABORADOR</p><h1>{{ snapshot.title }}</h1><p class="lead">{{ snapshot.description }}</p></header><section class="ticket-form ticket-section custom-request">{% include 'custom_forms/_request_fields.html' %}<button class="button button-primary" type="button" disabled>Enviar solicitação · apenas prévia</button></section>{% endif %}{% endblock %}

@@ -16,7 +16,8 @@ class ManagedPasswordChangeForm(AdminPasswordChangeForm):
 
 
 class ManagedUserForm(forms.ModelForm):
-    admin_portal = forms.BooleanField(label='Administrar chamados e integrações (ADMIN_PORTAL)', required=False)
+    admin_portal = forms.BooleanField(label='Permitir administrar o portal', required=False,
+        help_text='Permite gerenciar chamados, formulários e integrações. Não libera chamados restritos a outros grupos.')
 
     class Meta:
         model = get_user_model()

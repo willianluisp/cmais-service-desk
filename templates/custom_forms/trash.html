@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Lixeira de formulários{% endblock %}
+{% block extra_script %}<link rel="stylesheet" href="{% static 'css/forms.css' %}">{% endblock %}
+{% block content %}
+<header class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO · FORMULÁRIOS</p><h1>Lixeira de formulários</h1><p class="lead">Restaure solicitações removidas ou revise sua exclusão definitiva.</p></header>
+<nav class="form-view-tabs" aria-label="Gerenciar formulários"><a href="{% url 'custom_forms:manage' %}">Formulários</a><a href="{% url 'custom_forms:ordering' %}">Ordenar cards</a><a href="{% url 'custom_forms:trash' %}" aria-current="page">Lixeira</a></nav>
+<div class="notice">Restaurar mantém os campos e as configurações e devolve o formulário como rascunho. Publique novamente quando estiver pronto.</div>
+<div class="form-management-list">{% for definition in definitions %}
+<article class="form-management-row"><div><span class="form-status">Na lixeira</span><h2>{{ definition.title }}</h2><p>{{ definition.description|truncatechars:140|default:"Sem descrição" }}</p><dl class="form-trash-meta"><dt>Movido em</dt><dd><time datetime="{{ definition.trashed_at|date:'c' }}">{{ definition.trashed_at|date:"d/m/Y H:i" }}</time></dd><dt>Responsável</dt><dd>{{ definition.trashed_by_label|default:"Administrador não disponível" }}</dd></dl></div><div class="form-management-actions"><form method="post" action="{% url 'custom_forms:action' definition.pk %}">{% csrf_token %}<input type="hidden" name="revision" value="{{ definition.revision }}"><button class="button button-primary" type="submit" name="action" value="restore">Restaurar como rascunho</button></form><a class="button button-quiet form-delete" href="{% url 'custom_forms:permanent-delete' definition.pk %}">Revisar exclusão definitiva</a></div></article>
+{% empty %}<section class="ticket-section empty-state"><h2>A lixeira está vazia</h2><p>Os formulários movidos para cá poderão ser restaurados.</p><a class="button button-quiet" href="{% url 'custom_forms:manage' %}">Voltar aos formulários →</a></section>{% endfor %}</div>
+{% endblock %}

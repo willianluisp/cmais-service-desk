@@ -111,6 +111,7 @@ def process_publications(*, limit=10, graph_client=None):
     for _ in range(max(1, min(int(limit), 25))):
         with transaction.atomic():
             rows = AttachmentPublication.objects.filter(
+                attachment__ticket__is_sensitive=False,
                 state__in=["PENDING", "UPLOADED"], available_at__lte=timezone.now(),
                 attachment__ticket__archived_at__isnull=True,
                 attachment__ticket__planner_deleted_at__isnull=True,

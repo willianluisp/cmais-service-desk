@@ -23,6 +23,78 @@ def payload(user, **changes):
     return data
 
 
+def test_group_management_creates_supervisoras_and_assigns_users(client, manager, django_user_model):
+    employee = django_user_model.objects.create_user('supervisor.example')
+
+    response = client.post('/admin/auth/group/add/', {
+        'name': 'Supervisoras', 'users': [employee.pk], '_save': 'Save',
+    })
+
+    group = Group.objects.get(name='Supervisoras')
+    employee.refresh_from_db()
+    assert response.status_code == 302
+    assert employee.groups.filter(pk=group.pk).exists()
+    assert not employee.is_staff and not employee.is_superuser
+
+
+def test_group_management_edits_and_deletes_group(client, manager, django_user_model):
+    first = django_user_model.objects.create_user('first.supervisor')
+    second = django_user_model.objects.create_user('second.supervisor')
+    group = Group.objects.create(name='Supervisão')
+    group.user_set.add(first)
+
+    response = client.post(f'/admin/auth/group/{group.pk}/change/', {
+        'name': 'Supervisoras', 'users': [second.pk], '_save': 'Save',
+    })
+
+    group.refresh_from_db()
+    assert response.status_code == 302
+    assert group.name == 'Supervisoras'
+    assert set(group.user_set.values_list('pk', flat=True)) == {second.pk}
+    assert client.post(f'/admin/auth/group/{group.pk}/delete/', {'post': 'yes'}).status_code == 302
+    assert not Group.objects.filter(pk=group.pk).exists()
+
+
+def test_group_management_is_restricted_and_protects_admin_role(client, manager, django_user_model):
+    admin_group = Group.objects.get(name='ADMIN_PORTAL')
+    assert client.post(f'/admin/auth/group/{admin_group.pk}/change/', {
+        'name': 'Renamed', 'users': [], '_save': 'Save',
+    }).status_code == 200
+    admin_group.refresh_from_db()
+    assert admin_group.name == 'ADMIN_PORTAL'
+    assert client.post(f'/admin/auth/group/{admin_group.pk}/delete/', {'post': 'yes'}).status_code == 403
+
+    other = django_user_model.objects.create_user('other.portal.admin')
+    other.groups.add(admin_group)
+    client.force_login(other)
+    for path in ('/admin/auth/group/', '/admin/auth/group/add/'):
+        assert client.get(path).status_code == 403
+
+
+def test_group_editor_cannot_bypass_protected_admin_membership(client, manager, django_user_model):
+    group = Group.objects.get(name='ADMIN_PORTAL')
+    employee = django_user_model.objects.create_user('ordinary.person')
+    response = client.post(f'/admin/auth/group/{group.pk}/change/', {
+        'name': 'ADMIN_PORTAL', 'users': [employee.pk], '_save': 'Save',
+    })
+    assert response.status_code == 302
+    assert set(group.user_set.values_list('pk', flat=True)) == {manager.pk}
+    assert not employee.groups.exists()
+
+
+def test_group_editor_navigation_errors_and_access_summary(client, manager, django_user_model):
+    group = Group.objects.create(name='Supervisoras')
+    page = client.get(f'/admin/auth/group/{group.pk}/change/').content.decode()
+    for text in ('Salvar grupo', 'Sair sem salvar', 'Excluir grupo', 'Pessoas deste grupo', 'Acessos do grupo'):
+        assert text in page
+    assert 'href="/admin/auth/user/"' in page
+    assert 'href="/administracao/formularios/"' in page
+    response = client.post('/admin/auth/group/add/', {'name': 'Supervisoras', '_save': 'Save'})
+    assert response.status_code == 200
+    assert response.context['adminform'].form.errors
+    assert Group.objects.filter(name='Supervisoras').count() == 1
+
+
 @pytest.mark.parametrize('privilege', ['group', 'staff'])
 def test_other_admin_denied_all_user_routes(client, django_user_model, privilege):
     user = django_user_model.objects.create_user('other', is_staff=privilege == 'staff')

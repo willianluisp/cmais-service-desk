@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Excluir setor{% endblock %}
+{% block content %}
+<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Excluir setor</h1><p class="lead">Confirme a exclusão de “{{ sector.name }}”. Setores associados a chamados só podem ser desativados.</p></div>
+<section class="ticket-section"><form method="post" class="ticket-form" data-submit-feedback>{% csrf_token %}{{ form.as_p }}<div class="form-actions"><button type="submit" class="button button-primary" data-loading-label="Excluindo…">Excluir setor</button><a class="button button-quiet" href="{% url 'sectors:manage' %}">Cancelar</a></div></form></section>
+{% endblock %}

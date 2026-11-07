@@ -4,6 +4,7 @@
 {% block content %}
 <header class="page-heading"><p class="eyebrow">CENTRAL DE SUPORTE</p><h1>Novo chamado</h1><p>Descreva o que aconteceu para a TI ajudar você.</p></header>
 <section class="ticket-section ticket-intake" aria-labelledby="request-information">
+  {% if not form.sector.field.queryset.exists %}<div class="notice notice-error" role="status">Nenhum setor ativo está disponível. Solicite ao administrador o cadastro da lista oficial antes de abrir o chamado.</div>{% endif %}
   <h2 id="request-information">Como podemos ajudar?</h2><p>Os campos obrigatórios estão indicados. Seus anexos só serão enviados ao confirmar o formulário.</p>
   <p class="notice">Não inclua senhas, dados bancários ou informações pessoais desnecessárias.</p>
   <form method="post" enctype="multipart/form-data" class="ticket-form" data-submit-feedback>{% csrf_token %}

@@ -53,7 +53,20 @@ def ticket_list(request):
 
 @login_required
 @never_cache
-def ticket_create(request):
+def ticket_create(request, standard=False):
+    if request.method == "GET" and not standard:
+        from apps.custom_forms.views import choose
+
+        return choose(request)
+    from apps.custom_forms.services import standard_support
+
+    state, support = standard_support(request.user)
+    if state == "unavailable":
+        raise Http404
+    if support:
+        from apps.custom_forms.views import request_form
+
+        return request_form(request, support.pk)
     files = request.FILES.copy()
     if request.FILES:
         files.setlist("attachments", request.FILES.getlist("attachments"))
@@ -70,10 +83,16 @@ def ticket_create(request):
 
 
 def _detail(request, ticket, *, response_status=200):
+    from apps.custom_forms.models import FormSubmission
+    from apps.custom_forms.services import answer_rows
+
     events = ticket.events.select_related("actor")
     events = events.filter(is_internal=False)
+    attachments = list(ticket.attachments.all())
+    submission = FormSubmission.objects.filter(ticket=ticket).first()
     return render(request, "tickets/detail.html", {
-        "ticket": ticket, "events": events, "attachments": ticket.attachments.all(),
+        "ticket": ticket, "events": events, "attachments": attachments,
+        "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],
         "is_owner": ticket.requester_id == request.user.pk,
         "active_page": "tickets",
     }, status=response_status)
