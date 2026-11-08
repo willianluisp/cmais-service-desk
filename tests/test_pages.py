@@ -76,7 +76,7 @@ def test_admin_sees_disabled_integrations_without_configuration_secrets(
     assert response.status_code == 200
     body = response.content.decode()
     assert "Integração Microsoft" in body
-    assert "Demandas Infra TI" in body
+    assert "Plano de atendimento" in body
     assert "desabilitado" in body
     assert "sensitive-config-sentinel" not in body
     assert response.headers["Cache-Control"] == "no-store"

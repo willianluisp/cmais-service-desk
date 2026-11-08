@@ -14,7 +14,8 @@ from apps.tickets.models import Ticket, TicketEvent
 from apps.tickets.permissions import visible_tickets
 
 from .client import PlannerError, configured_client, configured_read_client
-from .configuration import bucket_id
+from .configuration import automation_enabled, bucket_id, selected_plan_id
+from .jobs import defer_graph
 from .models import PlannerTaskProvisioning
 
 
@@ -47,9 +48,9 @@ def _link_created_task(provisioning, task):
     task_id = task.get("id") if isinstance(task, dict) else None
     if not isinstance(task_id, str) or not task_id or len(task_id) > 255:
         raise PlannerError("INVALID_PAYLOAD", "Resposta do Planner inválida.")
-    plan_id = task.get("planId", getattr(settings, "PLANNER_PLAN_ID", ""))
+    plan_id = task.get("planId", selected_plan_id())
     bucket_id = task.get("bucketId", getattr(settings, "PLANNER_INTAKE_BUCKET_ID", ""))
-    if plan_id != getattr(settings, "PLANNER_PLAN_ID", "") or not isinstance(bucket_id, str):
+    if plan_id != selected_plan_id() or not isinstance(bucket_id, str):
         raise PlannerError("INVALID_PAYLOAD", "Resposta do Planner inválida.")
     ticket.planner_task_id = task_id
     ticket.planner_plan_id = plan_id
@@ -76,132 +77,124 @@ def _link_created_task(provisioning, task):
         enqueue_event(event)
 
 
+def _persist_link(provisioning, task):
+    with transaction.atomic():
+        ticket = Ticket.objects.select_for_update().get(pk=provisioning.ticket_id)
+        current = PlannerTaskProvisioning.objects.select_for_update().get(pk=provisioning.pk)
+        current.ticket = ticket
+        _link_created_task(current, task)
+        # An archive during the HTTP request must remain cancelled locally.
+        if ticket.archived_at or ticket.planner_deleted_at:
+            current.state = PlannerTaskProvisioning.State.CANCELLED
+        else:
+            # The description PATCH is a separate remote request. Keep durable
+            # work until it succeeds, including a crash immediately after linking.
+            current.state = PlannerTaskProvisioning.State.PENDING
+        current.save(update_fields=['state', 'updated_at'])
+        provisioning.ticket = ticket
+        provisioning.state = current.state
+
+
 def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id=None):
-    """Create Planner cards outside the request cycle, with timeout reconciliation."""
-    if graph_client is None and not (settings.PLANNER_ENABLED and settings.MICROSOFT_GRAPH_APPROVED):
+    """Claim durably before HTTP; never blindly repeat an uncertain creation."""
+    if graph_client is None and not automation_enabled():
         return 0
     limit = 1 if provisioning_id is not None else max(1, min(int(limit), 100))
     processed = 0
+    plan_tasks = None
     for _ in range(limit):
+        if graph_client is None and not automation_enabled():
+            break
         with transaction.atomic():
             ready = PlannerTaskProvisioning.objects.filter(
                 ticket__is_sensitive=False,
                 ticket__planner_deleted_at__isnull=True,
                 ticket__archived_at__isnull=True,
-                state__in=[PlannerTaskProvisioning.State.PENDING, PlannerTaskProvisioning.State.RECONCILIATION],
+                state__in=['PENDING', 'RECONCILIATION'],
                 available_at__lte=timezone.now(),
-            ).select_related("ticket")
+            )
             if provisioning_id is not None:
                 ready = ready.filter(pk=provisioning_id)
-            candidate = ready.first()
+            candidate = ready.order_by('available_at', 'pk').first()
             if candidate is None:
                 break
-            ticket = Ticket.objects.select_for_update().filter(pk=candidate.ticket_id).first()
-            if ticket is None or ticket.archived_at or ticket.planner_deleted_at:
-                continue
+            ticket = Ticket.objects.select_for_update().get(pk=candidate.ticket_id)
             provisioning = ready.select_for_update().filter(pk=candidate.pk).first()
-            if provisioning is None:
+            if provisioning is None or ticket.archived_at or ticket.planner_deleted_at or ticket.is_sensitive:
                 continue
             provisioning.ticket = ticket
+            # A second worker cannot claim this row while the first does HTTP.
+            provisioning.available_at = timezone.now() + timedelta(minutes=15)
+            provisioning.save(update_fields=['available_at', 'updated_at'])
+        post_attempted = False
+        try:
+            client = graph_client or configured_client()
             if ticket.planner_task_id:
-                try:
-                    client = graph_client or configured_client()
-                    if hasattr(client, "update_task_details"):
-                        client.update_task_details(ticket.planner_task_id, description=_card_description(ticket, provisioning.correlation_id), etag="")
-                    provisioning.state = PlannerTaskProvisioning.State.LINKED
-                    provisioning.last_error_code = ""
-                    provisioning.save(update_fields=["state", "last_error_code", "updated_at"])
-                    Ticket.objects.filter(pk=ticket.pk).update(
-                        sync_state=Ticket.SyncState.SYNCED, sync_error_code="",
-                    )
-                except PlannerError as exc:
-                    provisioning.available_at = timezone.now() + timedelta(seconds=exc.retry_after or 60)
-                    provisioning.last_error_code = exc.code
-                    provisioning.save(update_fields=["available_at", "last_error_code", "updated_at"])
+                if hasattr(client, 'update_task_details'):
+                    client.update_task_details(ticket.planner_task_id,
+                        description=_card_description(ticket, provisioning.correlation_id), etag='')
+                PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
+                    state='LINKED', last_error_code='', updated_at=timezone.now())
+                Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.SYNCED, sync_error_code='')
                 processed += 1
                 continue
-            try:
-                client = graph_client or configured_client()
-                if provisioning.state == PlannerTaskProvisioning.State.RECONCILIATION:
-                    matches = [task for task in client.list_plan_tasks(settings.PLANNER_PLAN_ID) if task.get("title") == _card_title(ticket)]
-                    if len(matches) == 1:
-                        _link_created_task(provisioning, matches[0])
-                        if hasattr(client, "update_task_details"):
-                            client.update_task_details(
-                                ticket.planner_task_id,
-                                description=_card_description(ticket, provisioning.correlation_id), etag="",
-                            )
-                        processed += 1
+            matches = []
+            if hasattr(client, 'list_plan_tasks'):
+                if plan_tasks is None:
+                    plan_tasks = client.list_plan_tasks(selected_plan_id())
+                matches = [task for task in plan_tasks
+                           if isinstance(task, dict) and task.get('title') == _card_title(ticket)]
+            if len(matches) > 1:
+                PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
+                    state='FAILED', last_error_code='DUPLICATE_RECONCILIATION', updated_at=timezone.now())
+                Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.ERROR,
+                                                         sync_error_code='DUPLICATE_RECONCILIATION')
+                processed += 1
+                continue
+            if len(matches) == 1:
+                _persist_link(provisioning, matches[0])
+            elif provisioning.state == 'RECONCILIATION':
+                # Eventual consistency means absence is not permission to POST.
+                PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
+                    available_at=timezone.now() + timedelta(seconds=120),
+                    last_error_code='RECONCILIATION_PENDING', updated_at=timezone.now())
+                processed += 1
+                continue
+            else:
+                # Commit the ambiguous intent BEFORE POST, even if the process
+                # is killed before it can persist the Graph response.
+                with transaction.atomic():
+                    current_ticket = Ticket.objects.select_for_update().get(pk=ticket.pk)
+                    current = PlannerTaskProvisioning.objects.select_for_update().get(pk=provisioning.pk)
+                    if current_ticket.archived_at or current_ticket.is_sensitive or current.state == 'CANCELLED':
                         continue
-                    if len(matches) > 1:
-                        provisioning.state, provisioning.last_error_code = PlannerTaskProvisioning.State.FAILED, "DUPLICATE_RECONCILIATION"
-                        provisioning.save(update_fields=["state", "last_error_code", "updated_at"])
-                        Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.ERROR, sync_error_code="DUPLICATE_RECONCILIATION")
-                        processed += 1
-                        continue
-                    # Absence from a list after a timeout is not proof that the
-                    # POST failed (Graph can be eventually consistent). Keep
-                    # reconciling rather than risk creating another task.
-                    provisioning.available_at = timezone.now() + timedelta(seconds=120)
-                    provisioning.last_error_code = "RECONCILIATION_PENDING"
-                    provisioning.save(update_fields=["available_at", "last_error_code", "updated_at"])
-                    processed += 1
-                    continue
-                if hasattr(client, "list_plan_tasks"):
-                    matches = [
-                        task
-                        for task in client.list_plan_tasks(settings.PLANNER_PLAN_ID)
-                        if task.get("title") == _card_title(ticket)
-                    ]
-                    if len(matches) == 1:
-                        _link_created_task(provisioning, matches[0])
-                        if hasattr(client, "update_task_details"):
-                            client.update_task_details(
-                                ticket.planner_task_id,
-                                description=_card_description(
-                                    ticket, provisioning.correlation_id
-                                ),
-                                etag="",
-                            )
-                        processed += 1
-                        continue
-                    if len(matches) > 1:
-                        provisioning.state = PlannerTaskProvisioning.State.FAILED
-                        provisioning.last_error_code = "DUPLICATE_RECONCILIATION"
-                        provisioning.save(
-                            update_fields=["state", "last_error_code", "updated_at"]
-                        )
-                        Ticket.objects.filter(pk=ticket.pk).update(
-                            sync_state=Ticket.SyncState.ERROR,
-                            sync_error_code="DUPLICATE_RECONCILIATION",
-                        )
-                        processed += 1
-                        continue
-                provisioning.attempts += 1
-                created = client.create_task(
-                    plan_id=settings.PLANNER_PLAN_ID,
-                    bucket_id=bucket_id("PLANNER_INTAKE_BUCKET_ID"),
-                    title=_card_title(ticket),
-                )
-                # Store the Graph task ID before the optional details PATCH.  A
-                # timeout from that second request must never cause another
-                # card to be POSTed for this protocol.
-                _link_created_task(provisioning, created)
-                if hasattr(client, "update_task_details"):
-                    client.update_task_details(
-                        created["id"], description=_card_description(ticket, provisioning.correlation_id),
-                        etag=created.get("@odata.etag", "*"),
-                    )
-            except PlannerError as exc:
-                # A timeout can mean Graph created the card. Never POST again
-                # until a title-based reconciliation has completed.
-                timeout_like = exc.code in {"GRAPH_UNAVAILABLE", "INVALID_PAYLOAD"}
-                provisioning.state = PlannerTaskProvisioning.State.RECONCILIATION if timeout_like else PlannerTaskProvisioning.State.PENDING
-                provisioning.last_error_code = exc.code
-                provisioning.available_at = timezone.now() + timedelta(seconds=exc.retry_after or min(60 * 2 ** min(provisioning.attempts, 6), 3600))
-                provisioning.save(update_fields=["state", "attempts", "last_error_code", "available_at", "updated_at"])
-                Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.ERROR, sync_error_code=exc.code)
-            processed += 1
+                    provisioning.attempts += 1
+                    current.state = 'RECONCILIATION'
+                    current.attempts = provisioning.attempts
+                    current.save(update_fields=['state', 'attempts', 'updated_at'])
+                post_attempted = True
+                created = client.create_task(plan_id=selected_plan_id(),
+                    bucket_id=bucket_id('PLANNER_INTAKE_BUCKET_ID'), title=_card_title(ticket))
+                _persist_link(provisioning, created)
+            if provisioning.state != 'CANCELLED' and hasattr(client, 'update_task_details'):
+                client.update_task_details(provisioning.ticket.planner_task_id,
+                    description=_card_description(ticket, provisioning.correlation_id), etag='')
+            PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
+                state='LINKED', last_error_code='', updated_at=timezone.now())
+        except PlannerError as exc:
+            uncertain = (post_attempted and exc.code in {'GRAPH_UNAVAILABLE', 'INVALID_PAYLOAD'})
+            # Preserve previous ambiguity when reconciliation itself fails.
+            uncertain = uncertain or provisioning.state == 'RECONCILIATION'
+            state = 'RECONCILIATION' if uncertain else 'PENDING'
+            delay = exc.retry_after or min(60 * 2 ** min(provisioning.attempts, 6), 3600)
+            PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
+                state=state, attempts=provisioning.attempts, last_error_code=exc.code,
+                available_at=timezone.now() + timedelta(seconds=delay), updated_at=timezone.now())
+            Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.ERROR, sync_error_code=exc.code)
+            defer_graph(exc)
+            if exc.status == 429 or exc.code == 'AUTH_REQUIRED':
+                return processed + 1
+        processed += 1
     return processed
 
 
@@ -236,7 +229,7 @@ def enforce_rate_limit(actor, ticket_id):
 
 
 def validate_snapshot(data, ticket):
-    plan_id = getattr(settings, "PLANNER_PLAN_ID", "")
+    plan_id = selected_plan_id()
     if not plan_id:
         raise PlannerError("PLAN_NOT_CONFIGURED", "Plano do Planner não configurado.")
     if (
@@ -293,7 +286,7 @@ def planner_projection(task, details):
 def _confirm_deleted(ticket, client):
     # A task 404 can also hide an access problem. Verify plan access and absence
     # from its complete list before requiring a second task-specific 404.
-    if ticket.planner_plan_id != settings.PLANNER_PLAN_ID:
+    if ticket.planner_plan_id != selected_plan_id():
         raise PlannerError("DELETION_UNCONFIRMED", "Plano divergente; dados preservados.")
     client.list_plan_buckets(ticket.planner_plan_id)
     tasks = client.list_plan_tasks(ticket.planner_plan_id)

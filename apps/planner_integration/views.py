@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
@@ -167,5 +168,8 @@ def microsoft_callback(request):
             "token_storage",
             PlannerError("OAUTH_STORAGE_UNAVAILABLE", "Armazenamento indisponível."),
         )
-    messages.success(request, "Microsoft conectado. A conexão não habilita criação automática de tarefas, sincronização periódica ou publicação de anexos.")
+    from .models import PlannerRuntime
+
+    PlannerRuntime.objects.filter(pk=1).update(connection_error='', connection_checked_at=timezone.now())
+    messages.success(request, "Microsoft conectado. Selecione o plano e o bucket e autorize a automação em Integrações. Conectar a conta não altera as aprovações nem publica anexos.")
     return redirect("integrations")

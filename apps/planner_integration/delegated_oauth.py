@@ -16,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
-from .client import NoRedirect, PlannerError
+from .client import NoRedirect, PlannerError, retry_after_seconds
 from .models import MicrosoftGraphConnection
 
 SESSION_KEY = "graph_delegated_oauth"
@@ -133,6 +133,11 @@ def _post_form(url, values, *, opener=None):
             raise ValueError
         return json.loads(raw)
     except HTTPError as exc:
+        if exc.code == 429:
+            retry_after = retry_after_seconds(exc.headers.get('Retry-After')) if exc.headers else None
+            exc.close()
+            raise PlannerError('AUTH_THROTTLED', 'Autorização Microsoft temporariamente limitada.',
+                               status=429, retry_after=retry_after) from None
         try:
             raw = exc.read(65537)
             data = json.loads(raw) if len(raw) <= 65536 else {}
@@ -140,6 +145,7 @@ def _post_form(url, values, *, opener=None):
         except (OSError, ValueError, UnicodeError):
             provider_code = None
         category = TOKEN_ERROR_CATEGORIES.get(provider_code, "OAUTH_TOKEN_REJECTED")
+        exc.close()
         raise PlannerError(category, "A Microsoft rejeitou a solicitação de token.", status=400) from None
     except (URLError, OSError, TimeoutError):
         raise PlannerError(

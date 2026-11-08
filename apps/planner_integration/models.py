@@ -26,6 +26,23 @@ class PlannerConfiguration(models.Model):
     buckets_checked_at = models.DateTimeField(null=True)
 
 
+class PlannerRuntime(models.Model):
+    """Singleton, explicit portal choices and durable background coordination."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    configuration = models.ForeignKey(PlannerConfiguration, null=True, on_delete=models.PROTECT)
+    plans = models.JSONField(default=list)
+    automation_enabled = models.BooleanField(null=True, default=None)
+    sync_requested = models.BooleanField(default=False)
+    connection_checked_at = models.DateTimeField(null=True)
+    connection_error = models.CharField(max_length=50, blank=True)
+    last_started_at = models.DateTimeField(null=True)
+    last_finished_at = models.DateTimeField(null=True)
+    lease_id = models.UUIDField(null=True)
+    lease_until = models.DateTimeField(null=True)
+    throttle_until = models.DateTimeField(null=True)
+
+
 class PlannerTestAttempt(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     actor = models.ForeignKey("auth.User", on_delete=models.PROTECT)

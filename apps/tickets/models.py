@@ -76,6 +76,7 @@ class Ticket(models.Model):
     planner_checklist_total = models.PositiveSmallIntegerField(default=0)
     planner_etag = models.CharField(max_length=255, blank=True)
     last_planner_sync_at = models.DateTimeField(null=True, blank=True)
+    next_planner_sync_at = models.DateTimeField(default=timezone.now, db_index=True)
     sync_state = models.CharField(max_length=10, choices=SyncState, default=SyncState.DISABLED)
     sync_error_code = models.CharField(max_length=80, blank=True)
     version = models.PositiveIntegerField(default=1)

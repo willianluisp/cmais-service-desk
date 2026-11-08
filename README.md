@@ -25,7 +25,7 @@ retentativas e consulta de status são preservados. Não há fila de atendimento
 atribuição ou edição local de status no portal. Administração de usuários e
 integrações permanece separada. Veja a [política de acesso](docs/access-and-attachments.md).
 
-O painel Microsoft está em `http://localhost:8010/integracoes/`, restrito ao grupo ADMIN_PORTAL e superusuários locais. Permite acompanhar conexão e fila, consultar buckets após autorização, mapear status e preparar teste controlado com confirmação. O teste requer `PLANNER_TEST_ENABLED`, desativado por padrão. Consulte [homologação Microsoft](docs/homologation-microsoft.md). OAuth autorizado e testes controlados usam overrides explícitos; envio automático, sincronização periódica, e-mail e SharePoint continuam desligados no ambiente isolado.
+O painel Microsoft está em `http://localhost:8010/integracoes/`, restrito ao grupo ADMIN_PORTAL e superusuários locais. Permite conectar/desconectar Microsoft, selecionar plano e bucket, testar a conexão sem criar tarefas, autorizar a automação, solicitar sincronização e conferir envios ambíguos. Veja [integração automática: configuração Entra, operação pela interface e limites](docs/planner-automatic-integration.md). O código requer duas migrations ainda não aplicadas e implantação autorizada; nenhum ambiente foi ativado por esta entrega. Teste com criação de tarefa, e-mail e SharePoint continuam sujeitos às liberações específicas existentes.
 
 Revisão final: [resultado, limpeza dos testes e preparação da máquina definitiva](docs/final-review-2026-11-03.md).
 Atualização manual e exclusão lógica: [comportamento e flags](docs/planner-sync-and-deletion.md).

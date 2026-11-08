@@ -59,6 +59,8 @@ class GraphClient:
     def get_task(self, task_id):
         try:
             token = self.token_provider()
+        except PlannerError:
+            raise
         except Exception:
             raise PlannerError("AUTH_REQUIRED", "Autorização Microsoft indisponível.") from None
         if not isinstance(token, str) or not token or "\r" in token or "\n" in token:
@@ -105,6 +107,27 @@ class GraphClient:
             method="POST",
             payload={"planId": plan_id, "bucketId": bucket_id, "title": title},
         )
+
+    def list_my_plans(self):
+        url = 'https://graph.microsoft.com/v1.0/me/planner/plans'
+        plans = []
+        for _ in range(100):
+            data = self._request_json(url)
+            if not isinstance(data, dict) or not isinstance(data.get('value'), list):
+                raise PlannerError('INVALID_PAYLOAD', 'Lista de planos inválida.')
+            for plan in data['value']:
+                if not isinstance(plan, dict) or not all(
+                    isinstance(plan.get(key), str) and 0 < len(plan[key]) <= 255
+                    for key in ('id', 'title')
+                ):
+                    raise PlannerError('INVALID_PAYLOAD', 'Plano inválido.')
+                plans.append({'id': plan['id'], 'title': plan['title']})
+            url = data.get('@odata.nextLink')
+            if not url:
+                return plans
+            if not isinstance(url, str) or not url.startswith('https://graph.microsoft.com/'):
+                raise PlannerError('INVALID_PAYLOAD', 'Paginação de planos inválida.')
+        raise PlannerError('INVALID_PAYLOAD', 'Paginação excedeu o limite seguro.')
 
     def list_plan_tasks(self, plan_id):
         url = (
@@ -168,6 +191,8 @@ class GraphClient:
     def _request_json(self, url, *, method="GET", payload=None, extra_headers=None, raw_body=None, content_type=None):
         try:
             token = self.token_provider()
+        except PlannerError:
+            raise
         except Exception:
             raise PlannerError("AUTH_REQUIRED", "Autorização Microsoft indisponível.") from None
         if not isinstance(token, str) or not token or "\r" in token or "\n" in token:
@@ -190,10 +215,10 @@ class GraphClient:
                 raise ValueError("payload too large")
             return json.loads(raw)
         except HTTPError as exc:
-            code = {401: "AUTH_REQUIRED", 403: "FORBIDDEN", 404: "TASK_NOT_FOUND", 409: "CONFLICT", 429: "THROTTLED"}.get(exc.code, "GRAPH_UNAVAILABLE")
+            code = {400: 'INVALID_REQUEST', 401: "AUTH_REQUIRED", 403: "FORBIDDEN", 404: "TASK_NOT_FOUND", 409: "CONFLICT", 412: 'CONFLICT', 429: "THROTTLED"}.get(exc.code, "GRAPH_UNAVAILABLE")
             retry_after = retry_after_seconds(exc.headers.get("Retry-After")) if exc.headers else None
             exc.close()
-            raise PlannerError(code, "Não foi possível consultar o Planner.", status=429 if exc.code == 429 else 503, retry_after=retry_after) from None
+            raise PlannerError(code, "Não foi possível consultar o Planner.", status=exc.code, retry_after=retry_after) from None
         except (URLError, OSError, TimeoutError):
             raise PlannerError("GRAPH_UNAVAILABLE", "Planner temporariamente indisponível.") from None
         except (ValueError, UnicodeError):
@@ -201,14 +226,14 @@ class GraphClient:
 
 
 def configured_client():
-    from .configuration import bucket_id
+    from .configuration import automation_enabled, bucket_id, selected_plan_id
 
-    if not getattr(settings, "PLANNER_ENABLED", False) or not getattr(settings, "MICROSOFT_GRAPH_APPROVED", False):
+    if not automation_enabled():
         raise PlannerError("INTEGRATION_DISABLED", "Integração Planner não está aprovada.")
     if not all((
         getattr(settings, "GRAPH_TENANT_ID", ""),
         getattr(settings, "GRAPH_CLIENT_ID", ""),
-        getattr(settings, "PLANNER_PLAN_ID", ""),
+        selected_plan_id(),
         bucket_id("PLANNER_INTAKE_BUCKET_ID"),
     )):
         raise PlannerError("INTEGRATION_DISABLED", "Configuração do Planner incompleta.")
@@ -217,7 +242,9 @@ def configured_client():
 
 def configured_read_client():
     """Authorized reads are independent of automatic task publication."""
-    if not settings.MICROSOFT_GRAPH_APPROVED or not settings.PLANNER_PLAN_ID:
+    from .configuration import selected_plan_id
+
+    if not settings.MICROSOFT_GRAPH_APPROVED or not selected_plan_id():
         raise PlannerError("INTEGRATION_DISABLED", "Consulta ao Planner não está autorizada.")
     return GraphClient(token_provider=configured_planner_token_provider())
 
