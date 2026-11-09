@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}{% if creating %}Nova empresa{% else %}Editar empresa{% endif %}{% endblock %}
+{% block content %}
+<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>{% if creating %}Nova empresa{% else %}Editar empresa{% endif %}</h1><p class="lead">Empresas ativas aparecem na abertura de chamados. Alterações preservam a empresa registrada nos chamados existentes. Todas as empresas compartilham os departamentos cadastrados.</p></div>
+<section class="ticket-section"><form method="post" class="ticket-form" data-submit-feedback>{% csrf_token %}{{ form.as_p }}<p>Os menores números aparecem primeiro na lista de empresas.</p><div class="form-actions"><button type="submit" class="button button-primary" data-loading-label="Salvando…">Salvar empresa</button><a class="button button-quiet" href="{% url 'companies:manage' %}">Cancelar</a></div></form></section>
+{% endblock %}

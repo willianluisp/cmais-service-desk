@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ ticket.number }}{% endblock %}
 {% block content %}
-{% if is_portal_administrator %}<form method="post" action="{% url 'tickets:archive' ticket.pk %}">{% csrf_token %}<button class="button button-quiet" type="submit">Arquivar chamado</button></form>{% endif %}
+{% if can_delete_ticket %}<a class="button button-quiet" href="{% url 'tickets:delete' ticket.pk %}">Excluir chamado</a>{% endif %}
+<p><strong>Empresa:</strong> {{ ticket.company_name_snapshot|default:"Não informada (chamado anterior)" }}</p>
+{% if can_manage_ticket_lifecycle %}<form method="post" action="{% url 'tickets:archive' ticket.pk %}">{% csrf_token %}<button class="button button-quiet" type="submit">Arquivar chamado</button></form>{% endif %}
 <header class="page-heading"><p class="eyebrow">{{ ticket.number }}{% if ticket.is_sensitive %} · SOLICITAÇÃO RESTRITA{% endif %}</p><h1>{{ ticket.title }}</h1><p><span class="ticket-status" id="ticket-status-label">{{ ticket.portal_status_label }}</span> · {{ ticket.get_priority_display }}</p></header>
 {% if ticket.intake_context %}<section class="ticket-section"><h2>Setor e localização do atendimento</h2><dl class="ticket-meta"><dt>Setor do colaborador</dt><dd>{{ ticket.intake_context.sector_name_snapshot }}</dd><dt>Localização do atendimento</dt><dd>{{ ticket.intake_context.service_location }}</dd></dl></section>{% endif %}
 <section class="ticket-section"><h2>Solicitação</h2><dl class="ticket-meta"><dt>Solicitante</dt><dd>{{ ticket.requester.get_full_name|default:ticket.requester.username }}</dd><dt>Abertura</dt><dd>{{ ticket.created_at|date:"d/m/Y H:i" }}</dd><dt>Responsável</dt><dd>{% if ticket.assignee %}{{ ticket.assignee.get_full_name|default:ticket.assignee.username }}{% else %}Aguardando atribuição no Planner{% endif %}</dd><dt>Última atualização</dt><dd><span id="ticket-updated-at">{{ ticket.updated_at|date:"d/m/Y H:i" }}</span></dd></dl><div class="ticket-description">{{ ticket.description|linebreaks }}</div></section>

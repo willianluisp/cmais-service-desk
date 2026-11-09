@@ -16,8 +16,8 @@ services:
       PORTAL_BASE_URL: http://localhost:8010
       ALLOWED_HOSTS: localhost
       CSRF_TRUSTED_ORIGINS: http://localhost:8010
-      MICROSOFT_GRAPH_APPROVED: "false"
-      GRAPH_DELEGATED_OAUTH_ENABLED: "false"
+      MICROSOFT_GRAPH_APPROVED: "true"
+      GRAPH_DELEGATED_OAUTH_ENABLED: "true"
       PLANNER_ENABLED: "false"
       PLANNER_TEST_ENABLED: "false"
       PLANNER_ATTACHMENTS_ENABLED: "false"

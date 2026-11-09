@@ -4,6 +4,7 @@ from . import lifecycle_views, views
 
 app_name = "tickets"
 urlpatterns = [
+    path('chamados/<uuid:pk>/excluir/', lifecycle_views.soft_delete, name='delete'),
     path('chamados/arquivados/', lifecycle_views.archived, name='archived'),
     path('chamados/<uuid:pk>/arquivar/', lifecycle_views.archive, name='archive'),
     path('chamados/<uuid:pk>/restaurar/', lifecycle_views.restore, name='restore'),

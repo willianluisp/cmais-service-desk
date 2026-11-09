@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Excluir empresa{% endblock %}
+{% block content %}
+<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Excluir empresa</h1><p class="lead">Confirme a exclusão de “{{ company.name }}”. Empresas associadas a chamados só podem ser desativadas.</p></div>
+<section class="ticket-section"><form method="post" class="ticket-form" data-submit-feedback>{% csrf_token %}{{ form.as_p }}<div class="form-actions"><button type="submit" class="button button-primary" data-loading-label="Excluindo…">Excluir empresa</button><a class="button button-quiet" href="{% url 'companies:manage' %}">Cancelar</a></div></form></section>
+{% endblock %}

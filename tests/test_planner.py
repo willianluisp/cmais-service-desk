@@ -373,7 +373,7 @@ def test_provisioning_links_the_card_once(ticket):
         def create_task(self, **kwargs):
             assert kwargs["plan_id"] == "plan-1"
             assert kwargs["bucket_id"] == "bucket-1"
-            assert ticket.number in kwargs["title"]
+            assert kwargs["title"] == ticket.title
             return payload(id="created-task")
 
     assert process_pending_provisioning(graph_client=CreateGraph()) == 1
@@ -405,7 +405,7 @@ def test_provisioning_can_target_one_outbox_item_without_processing_older_items(
 
     class CreateGraph:
         def create_task(self, **kwargs):
-            assert selected_ticket.number in kwargs["title"]
+            assert kwargs["title"] == selected_ticket.title
             return payload(id="selected-task")
 
     assert (

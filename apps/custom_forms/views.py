@@ -158,6 +158,11 @@ def preview(request):
 @login_required
 @never_cache
 def choose(request):
+    from apps.sectors.intake import intake_selection
+
+    initial, response = intake_selection(request)
+    if response is not None:
+        return response
     available = list(available_forms(request.user))
     support_state, support = standard_support(request.user)
     standard = dict(support.published_snapshot) if support else {"title": "Suporte técnico",
@@ -167,7 +172,7 @@ def choose(request):
                   symbol=ICONS.get(definition.published_snapshot.get("icon"), "＋")) for definition in available if definition.provision_key != "support"]
     rank = card_rank()
     cards.sort(key=lambda card: (rank.get(card["key"], len(rank)), card.get("display_order", 0), card["title"]))
-    return render(request, "custom_forms/choose.html", {"cards": cards, "active_page": "new_ticket"})
+    return render(request, "custom_forms/choose.html", {"cards": cards, "intake_query": f"company={initial['company']}&sector={initial['sector']}", "active_page": "new_ticket"})
 
 
 @require_http_methods(["GET", "POST"])
@@ -176,7 +181,14 @@ def choose(request):
 def request_form(request, pk):
     definition = get_object_or_404(available_forms(request.user), pk=pk)
     published = definition.published_snapshot
-    form = RequestForm(published, request.POST if request.method == "POST" else None, request.FILES or None)
+    initial = {}
+    if request.method == "GET":
+        from apps.sectors.intake import intake_selection
+
+        initial, response = intake_selection(request)
+        if response is not None:
+            return response
+    form = RequestForm(published, request.POST if request.method == "POST" else None, request.FILES or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
             ticket = submit_request(actor=request.user, form_id=pk, cleaned=form.cleaned_data)

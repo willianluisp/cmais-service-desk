@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Novo chamado{% endblock %}
+{% block content %}
+<header class="page-heading"><h1>Novo chamado</h1><p>Selecione a empresa e depois o departamento para escolher o formulário.</p></header>
+<form method="get" class="ticket-form">
+{% if company %}
+<p><strong>Empresa:</strong> {{ company.name }}</p><input type="hidden" name="company" value="{{ company.pk }}">
+<label for="sector">Departamento</label><select id="sector" name="sector" required><option value="">Selecione o departamento</option>{% for sector in sectors %}<option value="{{ sector.pk }}">{{ sector.name }}</option>{% endfor %}</select>
+{% if not sectors %}<p role="status">Nenhum departamento ativo. Solicite o cadastro ao administrador.</p>{% endif %}
+<a href="?">Alterar empresa</a>
+{% else %}
+<label for="company">Empresa</label><select id="company" name="company" required><option value="">Selecione a empresa</option>{% for company in companies %}<option value="{{ company.pk }}">{{ company.name }}</option>{% endfor %}</select>
+{% if not companies %}<p role="status">Nenhuma empresa ativa. Solicite o cadastro das empresas oficiais ao administrador.</p>{% endif %}
+{% endif %}
+<button class="button button-primary" type="submit">Continuar</button>
+</form>
+{% endblock %}

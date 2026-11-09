@@ -45,7 +45,7 @@ def test_fields_precede_existing_fields_and_filter_active_sectors(sector):
     form = forms.Form()
     form.fields["description"] = forms.CharField()
     add_global_fields(form)
-    assert list(form.fields) == ["sector", "service_location", "description"]
+    assert list(form.fields) == ["company", "sector", "service_location", "description"]
     assert list(form.fields["sector"].queryset) == [first, sector]
     assert form.fields["sector"].required
     assert form.fields["service_location"].required

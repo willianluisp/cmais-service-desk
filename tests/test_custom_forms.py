@@ -94,7 +94,7 @@ def test_create_edit_publish_duplicate_unpublish_and_delete(client, actors):
         "FORM_CREATED", "FORM_PUBLISHED", "FORM_DUPLICATED", "FORM_TRASHED", "FORM_PERMANENTLY_DELETED", "FORM_UNPUBLISHED"}
 
 
-def test_cards_preserve_standard_support_and_enforce_group_availability(client, actors, definition):
+def test_cards_preserve_standard_support_and_enforce_group_availability(client, actors, definition, intake_data):
     from apps.custom_forms.models import FormDefinition
 
     admin, employee, stranger = actors
@@ -105,13 +105,13 @@ def test_cards_preserve_standard_support_and_enforce_group_availability(client, 
     publish(definition, admin)
     FormDefinition.objects.create(title="Não publicado")
     client.force_login(employee)
-    page = client.get("/chamados/novo/")
+    page = client.get("/chamados/novo/", intake_data)
     assert "Acesso a sistemas" in page.content.decode()
     assert "Suporte técnico" in page.content.decode()
     assert "Não publicado" not in page.content.decode()
     client.force_login(stranger)
-    assert "Acesso a sistemas" not in client.get("/chamados/novo/").content.decode()
-    assert client.get(f"/chamados/novo/formulario/{definition.pk}/").status_code == 404
+    assert "Acesso a sistemas" not in client.get("/chamados/novo/", intake_data).content.decode()
+    assert client.get(f"/chamados/novo/formulario/{definition.pk}/", intake_data).status_code == 404
 
 
 def test_submission_is_structured_snapshotted_and_uses_existing_ticket_pipeline(client, actors, definition, intake_data):
@@ -164,7 +164,7 @@ def test_draft_changes_stay_private_and_old_version_submission_is_rejected(clien
     client.post(f"/administracao/formularios/{definition.pk}/", editor_data(definition, title="Título em rascunho"))
     definition.refresh_from_db()
     client.force_login(actors[1])
-    cards = client.get("/chamados/novo/").content.decode()
+    cards = client.get("/chamados/novo/", intake_data).content.decode()
     assert "Acesso a sistemas" in cards and "Título em rascunho" not in cards
     publish(definition, actors[0])
     response = client.post(f"/chamados/novo/formulario/{definition.pk}/", {**intake_data, "title": "Teste fictício", "priority": "NORMAL", "form_version": 1,
@@ -365,7 +365,7 @@ def test_untrusted_labels_options_and_answers_are_escaped(client, actors, defini
     definition.save()
     publish(definition, actors[0])
     client.force_login(actors[1])
-    response = client.get(f"/chamados/novo/formulario/{definition.pk}/")
+    response = client.get(f"/chamados/novo/formulario/{definition.pk}/", intake_data)
     assert attack not in response.content.decode()
     assert "&lt;script&gt;" in response.content.decode()
     client.post(f"/chamados/novo/formulario/{definition.pk}/", {**intake_data, "title": "Teste fictício", "priority": "NORMAL", "form_version": 1,

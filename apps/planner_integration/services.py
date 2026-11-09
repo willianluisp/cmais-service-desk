@@ -20,13 +20,54 @@ from .models import PlannerTaskProvisioning
 
 
 def _card_title(ticket):
-    # The protocol is a stable reconciliation key, not user-controlled content.
-    return f"[{ticket.number}] {ticket.title}"[:255]
+    from apps.custom_forms.models import FormSubmission
+
+    submission = FormSubmission.objects.filter(ticket=ticket).first()
+    if submission:
+        return submission.schema_snapshot["title"]
+    return ticket.title[:255]
+
+
+def _reconciliation_matches(client, tasks, ticket, provisioning, details_cache):
+    """Titles are presentation only; exact durable metadata identifies a ticket.
+
+    Legacy protocol-prefixed cards remain recoverable. A POST lost before its
+    description PATCH is intentionally ambiguous and requires manual recovery.
+    """
+    matches = []
+    linked_ids = set(Ticket.objects.exclude(planner_task_id__isnull=True)
+                     .values_list("planner_task_id", flat=True))
+    correlation = f"Correlação C+ Service Desk: {provisioning.correlation_id}"
+    protocol = f"Protocolo: {ticket.number}"
+    for task in tasks:
+        if not isinstance(task, dict) or not isinstance(task.get("id"), str):
+            continue
+        task_id = task["id"]
+        if task_id in linked_ids:
+            continue
+        legacy_match = task.get("title", "").startswith(f"[{ticket.number}] ")
+        if provisioning.state == 'PENDING' and not provisioning.attempts and not legacy_match:
+            # A fresh durable intent has never issued a POST. Only legacy cards
+            # can predate it; do not read unrelated task details on every intake.
+            continue
+        if task_id not in details_cache and hasattr(client, "get_task_details"):
+            details_cache[task_id] = client.get_task_details(task_id)
+        details = details_cache.get(task_id, {})
+        description = details.get("description", "") if isinstance(details, dict) else ""
+        lines = description.splitlines() if isinstance(description, str) else []
+        correlations = [line for line in lines if line.startswith("Correlação C+ Service Desk: ")]
+        identified = correlation in lines if correlations else protocol in lines or legacy_match
+        if identified:
+            matches.append(task)
+    return matches
 
 
 def _card_description(ticket, correlation_id):
     metadata = (
         f"Protocolo: {ticket.number}\n"
+        f"Empresa: {ticket.company_name_snapshot or 'Não informada (chamado anterior)'}\n"
+        f"Departamento: {ticket.intake_context.sector_name_snapshot if hasattr(ticket, 'intake_context') else 'Não informado'}\n"
+        f"Local do atendimento: {ticket.intake_context.service_location if hasattr(ticket, 'intake_context') else 'Não informado'}\n"
         f"Categoria: {ticket.category}\nPrioridade: {ticket.get_priority_display()}\n"
         f"Solicitante: {ticket.requester.get_full_name() or ticket.requester.username}\n\n"
     )
@@ -73,7 +114,7 @@ def _link_created_task(provisioning, task):
     )
     provisioning.state, provisioning.last_error_code = PlannerTaskProvisioning.State.LINKED, ""
     provisioning.save(update_fields=["state", "last_error_code", "updated_at"])
-    if created:
+    if created and not ticket.archived_at and not ticket.planner_deleted_at:
         enqueue_event(event)
 
 
@@ -95,6 +136,13 @@ def _persist_link(provisioning, task):
         provisioning.state = current.state
 
 
+def _provisioning_active(provisioning):
+    return PlannerTaskProvisioning.objects.filter(
+        pk=provisioning.pk, ticket__archived_at__isnull=True,
+        ticket__planner_deleted_at__isnull=True, ticket__is_sensitive=False,
+    ).exclude(state='CANCELLED').exists()
+
+
 def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id=None):
     """Claim durably before HTTP; never blindly repeat an uncertain creation."""
     if graph_client is None and not automation_enabled():
@@ -102,6 +150,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
     limit = 1 if provisioning_id is not None else max(1, min(int(limit), 100))
     processed = 0
     plan_tasks = None
+    details_cache = {}
     for _ in range(limit):
         if graph_client is None and not automation_enabled():
             break
@@ -130,20 +179,21 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
         try:
             client = graph_client or configured_client()
             if ticket.planner_task_id:
+                if not _provisioning_active(provisioning):
+                    continue
                 if hasattr(client, 'update_task_details'):
                     client.update_task_details(ticket.planner_task_id,
                         description=_card_description(ticket, provisioning.correlation_id), etag='')
                 PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
                     state='LINKED', last_error_code='', updated_at=timezone.now())
-                Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.SYNCED, sync_error_code='')
+                Ticket.objects.filter(pk=ticket.pk, archived_at__isnull=True).update(sync_state=Ticket.SyncState.SYNCED, sync_error_code='')
                 processed += 1
                 continue
             matches = []
             if hasattr(client, 'list_plan_tasks'):
                 if plan_tasks is None:
                     plan_tasks = client.list_plan_tasks(selected_plan_id())
-                matches = [task for task in plan_tasks
-                           if isinstance(task, dict) and task.get('title') == _card_title(ticket)]
+                matches = _reconciliation_matches(client, plan_tasks, ticket, provisioning, details_cache)
             if len(matches) > 1:
                 PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
                     state='FAILED', last_error_code='DUPLICATE_RECONCILIATION', updated_at=timezone.now())
@@ -176,7 +226,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
                 created = client.create_task(plan_id=selected_plan_id(),
                     bucket_id=bucket_id('PLANNER_INTAKE_BUCKET_ID'), title=_card_title(ticket))
                 _persist_link(provisioning, created)
-            if provisioning.state != 'CANCELLED' and hasattr(client, 'update_task_details'):
+            if _provisioning_active(provisioning) and hasattr(client, 'update_task_details'):
                 client.update_task_details(provisioning.ticket.planner_task_id,
                     description=_card_description(ticket, provisioning.correlation_id), etag='')
             PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
@@ -190,7 +240,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
                 state=state, attempts=provisioning.attempts, last_error_code=exc.code,
                 available_at=timezone.now() + timedelta(seconds=delay), updated_at=timezone.now())
-            Ticket.objects.filter(pk=ticket.pk).update(sync_state=Ticket.SyncState.ERROR, sync_error_code=exc.code)
+            Ticket.objects.filter(pk=ticket.pk, archived_at__isnull=True).update(sync_state=Ticket.SyncState.ERROR, sync_error_code=exc.code)
             defer_graph(exc)
             if exc.status == 429 or exc.code == 'AUTH_REQUIRED':
                 return processed + 1

@@ -124,6 +124,18 @@ def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, 
     provisioning.available_at = timezone.now()
     provisioning.save(update_fields=["available_at"])
     process_pending_provisioning(graph_client=simulator)
+    if mode == "timeout":
+        # Accepted POST without persisted ID or description is intentionally
+        # ambiguous: an administrator verifies the remote task before linking.
+        from apps.planner_integration.services import _persist_link
+
+        ticket.refresh_from_db()
+        assert ticket.planner_task_id is None
+        assert simulator.create_calls == 1
+        _persist_link(provisioning, simulator.get_task("simulated-task"))
+        provisioning.available_at = timezone.now()
+        provisioning.save(update_fields=["available_at"])
+        process_pending_provisioning(graph_client=simulator)
     ticket.refresh_from_db()
     assert ticket.planner_task_id == "simulated-task"
     assert ticket.sync_state == "SYNCED"

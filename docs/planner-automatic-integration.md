@@ -26,7 +26,7 @@ de criação perdida se o processo terminasse após enviar o POST.
   de interrupção. Tasks têm limites de 600/660 segundos. Retry-After/429 é respeitado entre jobs.
 - Chamados com falha têm próxima tentativa própria, evitando bloquear o restante da fila.
 - Antes do POST, a intenção ambígua é persistida. Timeout ou interrupção provoca reconciliação
-  por protocolo/título antes de qualquer nova criação. ID remoto é preservado antes do PATCH
+  pela correlação na descrição (ou protocolo legado), sem depender do título novo. ID remoto é preservado antes do PATCH
   da descrição; falhas desse PATCH não criam outra tarefa.
 - Mensagens de conexão, fila pendente, erros e ausência de processamento recente na administração.
   Operações administrativas usam os grupos existentes, POST e CSRF. Nenhum segredo é mostrado.
@@ -125,9 +125,9 @@ isso evita loops. Responsáveis são armazenados pelos IDs estáveis retornados 
 não são criadas contas nem consultado todo o diretório para descobrir nomes.
 
 Microsoft Graph não fornece chave de idempotência para criar plannerTask. Se uma criação
-ficar ambígua e nenhuma tarefa com o título original aparecer, a outbox permanece em conferência;
-não há repostagem cega. Alterar o título de uma tarefa antes da primeira reconciliação pode
-impedir a correspondência. Se forem encontradas múltiplas tarefas, a operação é bloqueada,
+ficar ambígua sem ID persistido nem correlação na descrição, a outbox permanece em conferência;
+não há repostagem cega. Títulos iguais ou renomeados não identificam o chamado.
+A administração deve conferir tarefas ambíguas sem descrição antes de vincular o ID existente. Se forem encontradas múltiplas tarefas, a operação é bloqueada,
 sem excluir qualquer tarefa; a administração pode resolver o vínculo pela seção de conferência.
 Quando não existe tarefa confirmada, não se libera repostagem cega. Não é possível prometer criação “exatamente uma vez” em todos
 os cenários de rede usando essa API; preserva-se o chamado e prioriza-se evitar duplicatas.
@@ -151,3 +151,11 @@ Referências oficiais:
 - [Planos compartilhados com a conta](https://learn.microsoft.com/en-us/graph/api/planneruser-list-plans?view=graph-rest-1.0)
 - [Criação de tarefas e Tasks.ReadWrite](https://learn.microsoft.com/en-us/graph/api/planner-post-tasks?view=graph-rest-1.0)
 - [Recursos suportados por notificações](https://learn.microsoft.com/en-us/graph/change-notifications-overview)
+
+
+## Empresas, exclusão local e títulos (novembro de 2026)
+
+Consulte [a entrega e atualização isolada 8010](implementation-companies-deletion-planner.md).
+Novas tarefas de formulários dinâmicos usam exclusivamente o nome publicado no snapshot.
+Protocolo, empresa, departamento e solicitante ficam na descrição. Tarefas já vinculadas
+continuam identificadas pelo ID remoto; esta atualização não renomeia tarefas existentes.

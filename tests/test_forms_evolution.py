@@ -98,7 +98,7 @@ def test_order_places_standard_exactly_and_rejects_stale_missing_or_duplicate_ro
             save_order(actor=admin, revision=state.revision, items=bad)
 
 
-def test_card_order_is_immediate_without_republishing_and_no_duplicate_support(people, client):
+def test_card_order_is_immediate_without_republishing_and_no_duplicate_support(people, client, intake_data):
     from apps.custom_forms.ordering import order_state, save_order
 
     admin, employee, _, _, _ = people
@@ -109,7 +109,7 @@ def test_card_order_is_immediate_without_republishing_and_no_duplicate_support(p
     client.force_login(employee)
     state, _ = order_state()
     save_order(actor=admin, revision=state.revision, items=[str(other.pk), "standard"])
-    page = client.get("/chamados/novo/")
+    page = client.get("/chamados/novo/", intake_data)
     html = page.content.decode()
     assert html.count('class="request-card') >= 2
     assert html.index("Outro fictício") < html.index("Suporte de TI fictício")
@@ -119,14 +119,14 @@ def test_card_order_is_immediate_without_republishing_and_no_duplicate_support(p
     assert support.published_version == 1
 
 
-def test_new_schema_types_validate_positive_integer_official_sector_and_datetime():
+def test_new_schema_types_validate_positive_integer_official_sector_and_datetime(intake_data):
     from apps.custom_forms.forms import RequestForm
     from apps.sectors.models import Sector
 
     sector = Sector.objects.create(name="Setor fictício de testes")
     fields = [question("integer"), question("sector", "Setor do colaborador desligado"), question("datetime")]
     snapshot = {"version": 1, "fields": fields}
-    payload = {"title": "Teste fictício", "priority": "NORMAL", "form_version": 1,
+    payload = {**intake_data, "title": "Teste fictício", "priority": "NORMAL", "form_version": 1,
         "sector": sector.pk, "service_location": "Local fictício",
         f"cf_{fields[0]['id']}": "2", f"cf_{fields[1]['id']}": sector.pk,
         f"cf_{fields[2]['id']}": "2026-11-06T15:30"}
@@ -136,7 +136,7 @@ def test_new_schema_types_validate_positive_integer_official_sector_and_datetime
         assert not RequestForm(snapshot, data).is_valid()
 
 
-def test_equivalent_global_questions_are_not_duplicated_and_values_are_snapshotted(people, client):
+def test_equivalent_global_questions_are_not_duplicated_and_values_are_snapshotted(people, client, intake_data):
     from apps.custom_forms.models import FormSubmission
     from apps.sectors.models import Sector
 
@@ -147,10 +147,10 @@ def test_equivalent_global_questions_are_not_duplicated_and_values_are_snapshott
     definition = FormDefinition.objects.create(title="Globais fictícios", fields=copy.deepcopy(fields))
     publish_form(actor=admin, form_id=definition.pk, revision=definition.revision)
     client.force_login(employee)
-    page = client.get(f"/chamados/novo/formulario/{definition.pk}/")
+    page = client.get(f"/chamados/novo/formulario/{definition.pk}/", {**intake_data, "sector": sector.pk})
     assert page.content.decode().count("Em qual setor você trabalha?") == 1
     assert page.content.decode().count("Onde o atendimento deverá ser realizado?") == 1
-    response = client.post(f"/chamados/novo/formulario/{definition.pk}/", {"title": "Globais fictícios", "priority": "NORMAL",
+    response = client.post(f"/chamados/novo/formulario/{definition.pk}/", {**intake_data, "title": "Globais fictícios", "priority": "NORMAL",
         "form_version": 1, "sector": sector.pk, "service_location": "Sala fictícia", f"cf_{fields[2]['id']}": "Resposta fictícia"})
     assert response.status_code == 302
     ticket = Ticket.objects.get()
@@ -164,7 +164,7 @@ def test_equivalent_global_questions_are_not_duplicated_and_values_are_snapshott
 
 
 @pytest.mark.parametrize("kind", ["standard", "custom"])
-def test_every_public_intake_requires_both_globals_first(people, client, kind):
+def test_every_public_intake_requires_both_globals_first(people, client, kind, intake_data):
     from apps.sectors.models import Sector
 
     Sector.objects.create(name="Setor fictício para obrigatoriedade")
@@ -173,8 +173,8 @@ def test_every_public_intake_requires_both_globals_first(people, client, kind):
     publish_form(actor=admin, form_id=definition.pk, revision=definition.revision)
     client.force_login(employee)
     url = "/chamados/novo/suporte/" if kind == "standard" else f"/chamados/novo/formulario/{definition.pk}/"
-    page = client.get(url)
-    assert list(page.context["form"].fields)[:2] == ["sector", "service_location"]
+    page = client.get(url, intake_data)
+    assert list(page.context["form"].fields)[:3] == ["company", "sector", "service_location"]
     response = client.post(url, {"title": "Teste fictício", "description": "Teste", "priority": "NORMAL",
         "form_version": 1, f"cf_{definition.fields[0]['id']}": "Texto fictício"})
     assert response.context["form"].errors.keys() >= {"sector", "service_location"}
@@ -198,7 +198,7 @@ def test_published_support_replaces_builtin_intake_without_duplicate_card(people
     definition = FormDefinition.objects.create(title="Suporte de TI", provision_key="support", fields=[question()])
     publish_form(actor=people[0], form_id=definition.pk, revision=definition.revision)
     client.force_login(people[1])
-    page = client.get("/chamados/novo/")
+    page = client.get("/chamados/novo/", intake_data)
     assert page.content.decode().count('class="request-card request-card-standard"') == 1
     response = client.post("/chamados/novo/suporte/", {**intake_data, "title": "Teste de suporte fictício",
         "priority": "NORMAL", "form_version": 1, f"cf_{definition.fields[0]['id']}": "Equipamento fictício"})

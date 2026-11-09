@@ -48,6 +48,9 @@ class Ticket(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="requested_tickets"
     )
     title = models.CharField("Título", max_length=160)
+    company = models.ForeignKey("sectors.Company", null=True, blank=True,
+                               on_delete=models.PROTECT, related_name="tickets", verbose_name="Empresa")
+    company_name_snapshot = models.CharField(max_length=150, blank=True)
     description = models.TextField("Descrição", max_length=10000)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, verbose_name="Categoria")
     priority = models.CharField("Prioridade", max_length=10, choices=Priority, default=Priority.NORMAL)

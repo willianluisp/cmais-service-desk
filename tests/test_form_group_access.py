@@ -36,9 +36,9 @@ def test_admin_can_open_and_submit_common_form_of_other_groups(client, group_set
     users, _, definition = group_setup
     client.force_login(users[username])
     assert definition.pk in available_forms(users[username]).values_list("pk", flat=True)
-    assert definition.title in client.get("/chamados/novo/").content.decode()
+    assert definition.title in client.get("/chamados/novo/", intake_data).content.decode()
     url = f"/chamados/novo/formulario/{definition.pk}/"
-    assert client.get(url).status_code == 200
+    assert client.get(url, intake_data).status_code == 200
     response = client.post(url, {**intake_data, "title": "Abertura administrativa fictícia", "priority": "NORMAL",
         "form_version": definition.published_version, f"cf_{definition.fields[0]['id']}": "Resposta fictícia"})
     assert response.status_code == 302
@@ -50,9 +50,9 @@ def test_any_one_authorized_group_can_read_and_submit_without_admin_rights(clien
     users, _, definition = group_setup
     user = users[username]
     client.force_login(user)
-    assert definition.title in client.get("/chamados/novo/").content.decode()
+    assert definition.title in client.get("/chamados/novo/", intake_data).content.decode()
     url = f"/chamados/novo/formulario/{definition.pk}/"
-    assert client.get(url).status_code == 200
+    assert client.get(url, intake_data).status_code == 200
     assert client.post(url, {**intake_data, "title": "Abertura por grupo fictício", "priority": "NORMAL",
         "form_version": definition.published_version, f"cf_{definition.fields[0]['id']}": "Resposta fictícia"}).status_code == 302
     for path in ("/administracao/formularios/", "/administracao/formularios/ordenar/", "/administracao/formularios/lixeira/", "/administracao/setores/", "/integracoes/"):
@@ -62,17 +62,17 @@ def test_any_one_authorized_group_can_read_and_submit_without_admin_rights(clien
     assert not user.is_staff and not user.is_superuser
 
 
-def test_multiple_matching_memberships_do_not_duplicate_cards_and_removal_revokes_access(client, group_setup):
+def test_multiple_matching_memberships_do_not_duplicate_cards_and_removal_revokes_access(client, group_setup, intake_data):
     users, groups, definition = group_setup
     employee = users["group-employee"]
     employee.groups.add(groups[1])
     client.force_login(employee)
     assert available_forms(employee).filter(pk=definition.pk).count() == 1
-    assert client.get("/chamados/novo/").content.decode().count(f'/chamados/novo/formulario/{definition.pk}/') == 1
+    assert client.get("/chamados/novo/", intake_data).content.decode().count(f'/chamados/novo/formulario/{definition.pk}/') == 1
     employee.groups.remove(groups[0])
-    assert client.get(f"/chamados/novo/formulario/{definition.pk}/").status_code == 200
+    assert client.get(f"/chamados/novo/formulario/{definition.pk}/", intake_data).status_code == 200
     employee.groups.remove(groups[1])
-    assert client.get(f"/chamados/novo/formulario/{definition.pk}/").status_code == 404
+    assert client.get(f"/chamados/novo/formulario/{definition.pk}/", intake_data).status_code == 404
 
 
 def test_unauthorized_group_cannot_bypass_cards_or_direct_post(client, group_setup, intake_data):

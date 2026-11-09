@@ -15,7 +15,7 @@ from .services import create_ticket
 
 def _ticket(request, pk):
     return get_object_or_404(
-        visible_tickets(request.user, Ticket.objects.select_related("requester", "category", "assignee")),
+        visible_tickets(request.user, Ticket.objects.select_related("requester", "category", "assignee", "company", "intake_context")),
         pk=pk,
     )
 
@@ -70,7 +70,14 @@ def ticket_create(request, standard=False):
     files = request.FILES.copy()
     if request.FILES:
         files.setlist("attachments", request.FILES.getlist("attachments"))
-    form = TicketForm(request.POST if request.method == "POST" else None, files or None)
+    initial = {}
+    if request.method == "GET":
+        from apps.sectors.intake import intake_selection
+
+        initial, response = intake_selection(request)
+        if response is not None:
+            return response
+    form = TicketForm(request.POST if request.method == "POST" else None, files or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
             ticket = create_ticket(actor=request.user, **form.cleaned_data)
@@ -94,6 +101,7 @@ def _detail(request, ticket, *, response_status=200):
         "ticket": ticket, "events": events, "attachments": attachments,
         "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],
         "is_owner": ticket.requester_id == request.user.pk,
+        "can_delete_ticket": request.user.is_active and request.user.groups.filter(name="ADMIN_PORTAL").exists(),
         "active_page": "tickets",
     }, status=response_status)
 

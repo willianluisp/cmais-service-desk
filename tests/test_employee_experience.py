@@ -25,9 +25,9 @@ def employee(client, django_user_model, settings, tmp_path):
     return client, user, Category.objects.create(name="Acesso a sistemas")
 
 
-def test_empty_form_has_instructions_and_accessible_uploads(employee):
+def test_empty_form_has_instructions_and_accessible_uploads(employee, intake_data):
     client, _, _ = employee
-    response = client.get("/chamados/novo/suporte/")
+    response = client.get("/chamados/novo/suporte/", intake_data)
     assert response.status_code == 200
     assert b'id="id_title_helptext"' in response.content
     assert b'aria-describedby="id_title_helptext"' in response.content

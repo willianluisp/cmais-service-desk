@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Meus chamados{% endblock %}
 {% block content %}
-{% if is_portal_administrator %}<a class="button button-quiet" href="{% url 'tickets:archived' %}">Chamados arquivados</a>{% endif %}
+{% if can_manage_ticket_lifecycle %}<a class="button button-quiet" href="{% url 'tickets:archived' %}">Chamados arquivados / excluídos</a>{% endif %}
 <header class="page-heading"><p class="eyebrow">CENTRAL DE SUPORTE</p><h1>Meus chamados</h1><p class="lead">Acompanhe suas solicitações e as atualizações do atendimento.</p></header>
 <div class="ticket-actions"><a class="button button-primary" href="{% url 'tickets:create' %}">Novo chamado</a></div>
 <div class="ticket-stats" aria-label="Resumo dos chamados"><article><strong>{{ counts.ABERTO|default:0 }}</strong><span>Abertos</span></article><article><strong>{{ counts.EM_ATENDIMENTO|default:0 }}</strong><span>Em andamento</span></article><article><strong>{{ counts.RESOLVIDO|default:0 }}</strong><span>Finalizados</span></article></div>
@@ -14,7 +14,7 @@
 <div class="ticket-table-wrap" tabindex="0" role="region" aria-label="Lista de chamados"><table class="ticket-table" role="table"><caption>Suas solicitações · {{ page_obj.paginator.count }} resultado{{ page_obj.paginator.count|pluralize:"s" }}</caption><thead><tr><th scope="col">Chamado</th><th scope="col">Status</th><th scope="col">Prioridade</th><th scope="col">Responsável</th><th scope="col">Abertura</th><th scope="col">Última atualização</th></tr></thead><tbody>
 {% for ticket in page_obj %}
 <tr>
-  <th scope="row"><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}<span class="request-title">{{ ticket.title }}</span><span class="helptext">Ver detalhes →</span></a></th>
+  <th scope="row"><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}<span class="request-title">{{ ticket.title }} · {{ ticket.company_name_snapshot|default:"Empresa não informada" }}</span><span class="helptext">Ver detalhes →</span></a></th>
   <td data-label="Status"><span class="ticket-status">{{ ticket.portal_status_label }}</span></td>
   <td data-label="Prioridade">{{ ticket.get_priority_display }}</td>
   <td data-label="Responsável">{% if ticket.planner_assignee_names %}{{ ticket.planner_assignee_names|join:", " }}{% elif ticket.assignee %}{{ ticket.assignee.get_full_name|default:ticket.assignee.username }}{% else %}Aguardando atribuição{% endif %}</td>

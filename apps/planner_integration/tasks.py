@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from celery import shared_task
+from django.http import Http404
 from django.utils import timezone
 
 from apps.tickets.models import Ticket
@@ -24,6 +25,9 @@ def _synchronize_linked_tasks(limit=25):
         Ticket.objects.filter(pk=ticket.pk).update(next_planner_sync_at=timezone.now() + timedelta(seconds=120))
         try:
             sync_ticket(actor=ticket.requester, ticket_id=ticket.pk)
+        except Http404:
+            # Deleted or access revoked after the initial batch was selected.
+            continue
         except PlannerError as exc:
             Ticket.objects.filter(pk=ticket.pk).update(
                 next_planner_sync_at=timezone.now() + timedelta(seconds=max(120, exc.retry_after or 120)))

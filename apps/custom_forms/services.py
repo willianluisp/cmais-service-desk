@@ -234,7 +234,12 @@ def submit_request(*, actor, form_id, cleaned):
             if definition.published_version != cleaned["form_version"]:
                 raise ValidationError("O formulário foi atualizado. Recarregue esta página e confira os campos antes de enviar.")
             published = copy.deepcopy(definition.published_snapshot)
-            from apps.sectors.models import Sector
+            from apps.sectors.models import Company, Sector
+
+            # Match standard intake's company -> sector lock order.
+            company = Company.objects.select_for_update().filter(pk=cleaned["company"].pk, is_active=True).first()
+            if company is None:
+                raise ValidationError({"company": "Selecione uma empresa ativa."})
 
             selected = {cleaned["sector"].pk}
             selected.update(cleaned[f"cf_{field['id']}"].pk for field in published["fields"]
@@ -244,7 +249,7 @@ def submit_request(*, actor, form_id, cleaned):
                 raise ValidationError("Um setor selecionado foi desativado. Recarregue o formulário.")
             ticket = create_ticket(actor=actor, title=cleaned["title"], priority=cleaned["priority"],
                 description=f"Solicitação pelo formulário {published['title']}. As respostas estão disponíveis no portal.",
-                submission_key=key, sector=cleaned["sector"], service_location=cleaned["service_location"],
+                submission_key=key, company=company, sector=cleaned["sector"], service_location=cleaned["service_location"],
                 is_sensitive=published.get("is_sensitive", False),
                 restricted_group_ids=list(definition.allowed_groups.values_list("pk", flat=True)))
             answers = {}

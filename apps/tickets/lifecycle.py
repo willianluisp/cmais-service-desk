@@ -17,7 +17,7 @@ from .uploads import private_storage
 
 
 def authorize(actor):
-    if not is_portal_admin(actor):
+    if not (actor.is_authenticated and actor.is_active and actor.groups.filter(name="ADMIN_PORTAL").exists()):
         raise PermissionDenied
 
 
@@ -38,7 +38,7 @@ def cancel_pending(ticket):
 
 
 @transaction.atomic
-def archive_ticket(*, actor, ticket_id):
+def archive_ticket(*, actor, ticket_id, soft_delete=False):
     ticket = locked_ticket(actor, ticket_id)
     if ticket.archived_at:
         return
@@ -47,7 +47,8 @@ def archive_ticket(*, actor, ticket_id):
     ticket.version += 1
     ticket.save(update_fields=['archived_at', 'archive_reason', 'version'])
     cancel_pending(ticket)
-    TicketDeletionAudit.objects.create(ticket_id=ticket.pk, number=ticket.number, actor=actor, action='ARCHIVE')
+    TicketDeletionAudit.objects.create(ticket_id=ticket.pk, number=ticket.number, actor=actor,
+                                       action='SOFT_DELETE' if soft_delete else 'ARCHIVE')
 
 
 @transaction.atomic
@@ -63,9 +64,12 @@ def restore_ticket(*, actor, ticket_id):
     if not ticket.planner_deleted_at:
         provision = PlannerTaskProvisioning.objects.filter(ticket=ticket, state='CANCELLED').first()
         if provision:
-            provision.state = 'LINKED' if ticket.planner_task_id else ('RECONCILIATION' if provision.attempts else 'PENDING')
+            # A linked card may have been archived before its description PATCH.
+            # Retry details on the existing ID; never create another card.
+            provision.state = 'PENDING' if ticket.planner_task_id else ('RECONCILIATION' if provision.attempts else 'PENDING')
             provision.last_error_code = ''
-            provision.save(update_fields=['state', 'last_error_code', 'updated_at'])
+            provision.available_at = timezone.now()
+            provision.save(update_fields=['state', 'last_error_code', 'available_at', 'updated_at'])
         AttachmentPublication.objects.filter(attachment__ticket=ticket, state='CANCELLED', last_error_code='ADMIN_ARCHIVED').update(state='PENDING', last_error_code='')
     TicketDeletionAudit.objects.create(ticket_id=ticket.pk, number=ticket.number, actor=actor, action='RESTORE')
 

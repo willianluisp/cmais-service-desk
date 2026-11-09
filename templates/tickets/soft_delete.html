@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Excluir chamado{% endblock %}
+{% block content %}
+<h1>Excluir chamado {{ ticket.number }}</h1><p>{{ ticket.title }}</p>
+<p>O chamado sairá das listagens e deixará de ser enviado ou sincronizado com o Planner. Os dados, anexos e a tarefa remota serão preservados.</p>
+<form method="post" class="ticket-form">{% csrf_token %}{{ form.as_p }}<button class="button button-primary" type="submit">Excluir chamado</button><a class="button button-quiet" href="{% url 'tickets:detail' ticket.pk %}">Cancelar</a></form>
+{% endblock %}

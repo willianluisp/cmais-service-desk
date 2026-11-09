@@ -18,4 +18,6 @@ def is_user_management_admin(user):
 
 def portal_access(request):
     return {'is_portal_administrator': is_portal_admin(request.user),
+            'can_manage_ticket_lifecycle': bool(request.user.is_authenticated and request.user.is_active
+                and request.user.groups.filter(name='ADMIN_PORTAL').exists()),
             'can_manage_users': is_user_management_admin(request.user)}

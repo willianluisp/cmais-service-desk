@@ -14,7 +14,7 @@ def _active(actor):
 
 @transaction.atomic
 def create_ticket(*, actor, title, description, category=None, priority, attachments=None, submission_key=None,
-                  sector=None, service_location=None, is_sensitive=False, restricted_group_ids=(), approver_group_ids=()):
+                  company=None, sector=None, service_location=None, is_sensitive=False, restricted_group_ids=(), approver_group_ids=()):
     """Persist the intake and durable Planner-provisioning intent only."""
     _active(actor)
     if submission_key:
@@ -26,6 +26,12 @@ def create_ticket(*, actor, title, description, category=None, priority, attachm
             if previous.requester_id != actor.pk or previous.archived_at or previous.planner_deleted_at:
                 raise ValidationError("Envio já utilizado. Abra um novo formulário de chamado.")
             return previous
+    if company is not None:
+        from apps.sectors.models import Company
+
+        company = Company.objects.select_for_update().filter(pk=company.pk, is_active=True).first()
+        if company is None:
+            raise ValidationError({"company": "Selecione uma empresa ativa."})
     if sector is not None:
         from apps.sectors.models import Sector
 
@@ -46,6 +52,7 @@ def create_ticket(*, actor, title, description, category=None, priority, attachm
         sync_state=Ticket.SyncState.DISABLED if is_sensitive else Ticket.SyncState.PENDING,
         submission_key=submission_key,
         is_sensitive=is_sensitive,
+        company=company, company_name_snapshot=company.name if company else "",
     )
     ticket.full_clean()
     ticket.save(force_insert=True)
@@ -64,7 +71,8 @@ def create_ticket(*, actor, title, description, category=None, priority, attachm
     event = TicketEvent.objects.create(
         ticket=ticket, actor=actor, event_type="CREATED", origin=TicketEvent.Origin.PORTAL,
         summary="Chamado aberto pelo solicitante.",
-        payload=context_payload,
+        payload={**context_payload, "company_id": company.pk if company else None,
+                 "company_name": ticket.company_name_snapshot},
         idempotency_key=f"portal:{ticket.pk}:created",
     )
     from apps.notifications.services import enqueue_event

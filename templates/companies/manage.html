@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar empresas{% endblock %}
+{% block content %}
+<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Gerenciar empresas</h1><p class="lead">Organize as empresas disponíveis na abertura de chamados.</p><a class="button button-primary" href="{% url 'companies:create' %}">Nova empresa</a></div>
+<section class="ticket-section" aria-label="Empresas cadastradas">
+{% for company in companies %}
+<article class="ticket-section"><h2>{{ company.name }}</h2><p>{% if company.is_active %}Ativa{% else %}Inativa{% endif %} · Ordem: {{ company.display_order }}</p><div class="form-actions"><a class="button button-secondary" href="{% url 'companies:edit' company.pk %}">Editar empresa</a><a class="button button-quiet" href="{% url 'companies:delete' company.pk %}">Excluir empresa</a></div></article>
+{% empty %}<p>Nenhuma empresa cadastrada. Cadastre a primeira empresa para disponibilizá-la nos novos chamados.</p>{% endfor %}
+</section>
+{% endblock %}

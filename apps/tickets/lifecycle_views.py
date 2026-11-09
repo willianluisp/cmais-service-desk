@@ -4,7 +4,7 @@ import time
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
@@ -21,6 +21,25 @@ class PermanentDeletionForm(forms.Form):
     irreversible = forms.BooleanField(label='Entendo que esta exclusão é irreversível')
     password = forms.CharField(label='Minha senha atual', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'current-password'}))
     confirmation_token = forms.CharField(widget=forms.HiddenInput)
+
+
+class SoftDeletionForm(forms.Form):
+    confirm = forms.BooleanField(label="Confirmo a exclusão lógica deste chamado. Ele poderá ser recuperado pela administração.")
+
+
+@login_required
+@never_cache
+@require_http_methods(['GET', 'POST'])
+def soft_delete(request, pk):
+    if not (request.user.is_active and request.user.groups.filter(name="ADMIN_PORTAL").exists()):
+        raise PermissionDenied
+    ticket = get_object_or_404(authorized_tickets(request.user, Ticket.objects.all()), pk=pk, archived_at__isnull=True)
+    form = SoftDeletionForm(request.POST if request.method == 'POST' else None)
+    if request.method == 'POST' and form.is_valid():
+        archive_ticket(actor=request.user, ticket_id=pk, soft_delete=True)
+        messages.success(request, 'Chamado excluído. Recuperação disponível em chamados arquivados.')
+        return redirect('tickets:list')
+    return render(request, 'tickets/soft_delete.html', {'ticket': ticket, 'form': form})
 
 
 @login_required
