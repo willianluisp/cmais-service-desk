@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 import environ
@@ -132,7 +132,7 @@ CELERY_BEAT_SCHEDULE = {}
 EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 DEFAULT_FROM_EMAIL = "nao-responda@example.invalid"
 
-# A Fase 1 nÃ£o carrega configuraÃ§Ãµes de integraÃ§Ã£o ou backends externos.
+# A Fase 1 não carrega configurações de integração ou backends externos.
 LDAP_ENABLED = False
 # A single approval is required in addition to each narrow integration flag.
 # This keeps a copied environment from silently reaching Microsoft 365.
