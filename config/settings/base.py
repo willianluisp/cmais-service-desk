@@ -55,6 +55,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.accounts.permissions.portal_access",
+                "apps.planner_integration.observations.context",
             ],
         },
     },
@@ -170,6 +171,7 @@ GRAPH_TENANT_ID = env("GRAPH_TENANT_ID", default="")
 GRAPH_CLIENT_ID = env("GRAPH_CLIENT_ID", default="")
 GRAPH_CLIENT_SECRET = env("GRAPH_CLIENT_SECRET", default="")
 GRAPH_AUTH_STRATEGY = env("GRAPH_AUTH_STRATEGY", default="client_credentials")
+PLANNER_OBSERVATIONS_ENABLED = env.bool("PLANNER_OBSERVATIONS_ENABLED", default=False)
 GRAPH_DELEGATED_OAUTH_ENABLED = env.bool("GRAPH_DELEGATED_OAUTH_ENABLED", default=False)
 PLANNER_TEST_ENABLED = env.bool("PLANNER_TEST_ENABLED", default=False)
 PLANNER_ATTACHMENTS_ENABLED = env.bool("PLANNER_ATTACHMENTS_ENABLED", default=False)
@@ -183,6 +185,7 @@ GRAPH_MAILBOX_ID = env("GRAPH_MAILBOX_ID", default="")
 NOTIFICATIONS_PROVIDER = env("NOTIFICATIONS_PROVIDER", default="console")
 NOTIFICATIONS_MAX_ATTEMPTS = 5
 NOTIFICATIONS_TI_RECIPIENTS = env.list("NOTIFICATIONS_TI_RECIPIENTS", default=[])
+
 CELERY_BEAT_SCHEDULE = {
     'cleanup-deleted-ticket-files': {
         'task': 'apps.planner_integration.tasks.cleanup_deleted_ticket_files',
@@ -190,12 +193,12 @@ CELERY_BEAT_SCHEDULE = {
     },
     "sync-linked-planner-tasks": {
         "task": "apps.planner_integration.tasks.synchronize_linked_tasks",
-        "schedule": 120.0,
+        "schedule": 30.0,
         "kwargs": {"limit": 25},
     },
     "provision-planner-tasks": {
         "task": "apps.planner_integration.tasks.provision_pending_tasks",
-        "schedule": 30.0,
+        "schedule": 5.0,
         "kwargs": {"limit": 25},
     },
     "process-notification-outbox": {
@@ -204,3 +207,4 @@ CELERY_BEAT_SCHEDULE = {
         "kwargs": {"limit": 50},
     }
 }
+

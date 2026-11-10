@@ -1,8 +1,10 @@
+
 name: cmais-service-desk-isolated
 
 services:
   web:
     image: cmais-service-desk:isolated
+    restart: unless-stopped
     build:
       context: .
       args:
@@ -18,11 +20,12 @@ services:
       CSRF_TRUSTED_ORIGINS: http://localhost:8010
       MICROSOFT_GRAPH_APPROVED: "true"
       GRAPH_DELEGATED_OAUTH_ENABLED: "true"
-      PLANNER_ENABLED: "false"
-      PLANNER_TEST_ENABLED: "false"
-      PLANNER_ATTACHMENTS_ENABLED: "false"
-      GRAPH_ATTACHMENTS_STORAGE_APPROVED: "false"
-      GRAPH_ATTACHMENT_SCOPE_ENABLED: "false"
+      PLANNER_ENABLED: "true"
+      PLANNER_OBSERVATIONS_ENABLED: "true"
+      PLANNER_TEST_ENABLED: "true"
+      PLANNER_ATTACHMENTS_ENABLED: "true"
+      GRAPH_ATTACHMENTS_STORAGE_APPROVED: "true"
+      GRAPH_ATTACHMENT_SCOPE_ENABLED: "true"
       EMAIL_ENABLED: "false"
       SESSION_COOKIE_NAME: cmais_isolated_sessionid
       CSRF_COOKIE_NAME: cmais_isolated_csrftoken
@@ -32,8 +35,10 @@ services:
     ports: ["127.0.0.1:8010:8000"]
     volumes: [isolated_attachments:/app/media]
     depends_on: [db, redis]
+
   worker:
     image: cmais-service-desk:isolated
+    restart: unless-stopped
     env_file: *isolated_env_files
     environment:
       <<: *isolated_environment
@@ -43,8 +48,10 @@ services:
       REDIS_URL: redis://redis:6379/0
     command: [celery, -A, config, worker, --loglevel=WARNING]
     depends_on: [db, redis]
+
   beat:
     image: cmais-service-desk:isolated
+    restart: unless-stopped
     env_file: *isolated_env_files
     environment:
       <<: *isolated_environment
@@ -54,15 +61,19 @@ services:
       REDIS_URL: redis://redis:6379/0
     command: [celery, -A, config, beat, --loglevel=WARNING, --schedule=/tmp/celerybeat-schedule]
     depends_on: [db, redis]
+
   db:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: service_desk
       POSTGRES_USER: portal
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes: [isolated_postgres:/var/lib/postgresql/data]
+
   redis:
     image: redis:7.4-alpine
+    restart: unless-stopped
     volumes: [isolated_redis:/data]
 
 volumes:
