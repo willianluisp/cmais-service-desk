@@ -1,15 +1,17 @@
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelector(".error-summary")?.focus();
   document.querySelectorAll("form[data-submit-feedback]").forEach((form) => {
-    const button = form.querySelector('button[type="submit"]');
+    let button = form.querySelector('button[type="submit"]');
     const reset = () => {
       form.removeAttribute("aria-busy");
       delete form.dataset.busy;
       if (button?.dataset.originalLabel) { button.textContent = button.dataset.originalLabel; button.disabled = false; }
     };
     form.addEventListener("submit", (event) => {
+      if (event.defaultPrevented) return;
       if (form.dataset.busy) { event.preventDefault(); return; }
       if (!form.checkValidity()) return;
+      button = event.submitter || button;
       form.dataset.busy = "true";
       form.setAttribute("aria-busy", "true");
       if (button) {

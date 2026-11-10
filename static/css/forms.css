@@ -91,3 +91,55 @@
 @media (max-width: 1100px) { .form-builder-layout { grid-template-columns: 180px minmax(0, 1fr); gap: 16px; } .form-palette { padding: 16px; } .form-editor-actions { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 760px) { .form-heading, .form-management-row { align-items: flex-start; flex-direction: column; } .form-builder-layout { grid-template-columns: 1fr; } .form-palette { position: static; } .form-palette > div { grid-template-columns: 1fr 1fr; } .form-metadata-grid, .field-properties { grid-template-columns: 1fr; } .builder-field > header { flex-wrap: wrap; } .field-actions { margin-left: 0; } .form-editor-actions > div { width: 100%; } .form-editor-actions button { flex: 1; } .request-card { padding: 22px; } }
 @media (prefers-reduced-motion: reduce) { .request-card { transition: none; } .request-card:hover { transform: none; } }
+
+/* Componentes do redesign; preserva o construtor e seus controles de teclado. */
+.form-filter { flex-wrap: wrap; background: var(--desk); border: 1px solid var(--rule); padding: 16px 20px; border-radius: 12px; }
+.form-filter label { font-size: 14px; font-weight: 600; }
+.form-filter select { min-height: 44px; font: inherit; background: var(--control-background); max-width: 100%; }
+.form-management-row { padding: 28px; box-shadow: var(--panel-shadow); }
+.form-management-row > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.form-management-row h2 { font-size: 21px; }
+.form-management-row p { font-size: 14px; }
+.form-management-actions .button { font-size: 13px; }
+.form-metadata-grid > div, .field-properties > label { min-width: 0; }
+.form-section-heading p, .form-palette p:not(.eyebrow), .form-palette small { font-size: 13px; }
+.form-palette { top: 24px; }
+.form-type-button { font-size: 14px; border-radius: 8px; }
+.form-palette h2 { font-size: 20px; }
+.form-editor-actions { box-shadow: var(--panel-shadow); }
+.form-editor-actions > p { font-size: 13px; }
+.form-editor-actions .button { min-height: 44px; }
+.form-lifecycle { border-top: 3px solid var(--rule); }
+.request-cards { gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.request-card { min-width: 0; min-height: 180px; padding: 28px; box-shadow: var(--panel-shadow); }
+.request-card-copy { min-width: 0; overflow-wrap: anywhere; }
+.request-card h2 { font-size: 21px; }
+.request-card p { font-size: 14px; }
+.request-card-standard { border-top-color: var(--brand-green); }
+.request-card:hover { transform: none; background: var(--control-background); }
+.request-field { margin-bottom: 0; }
+.request-field > label, .request-field legend { font-size: 15px; }
+.request-field .helptext { font-size: 13px; }
+.request-field fieldset label { min-height: 44px; padding: 8px 0; }
+.field-required-note { font-size: 12px; }
+.field-properties > label { font-size: 13px; }
+.field-properties > label.field-check { min-height: 44px; }
+.global-field-preview { padding: 20px 0; }
+.global-field-preview p, .global-field-preview span { font-size: 13px; }
+@media (max-width: 800px) {
+  .form-heading, .form-management-row { flex-direction: column; align-items: start; }
+  .form-management-row { padding: 20px; }
+  .form-management-actions { width: 100%; }
+  .form-management-actions > .button { width: 100%; }
+  .form-builder-layout { grid-template-columns: minmax(0, 1fr); }
+  .form-palette { position: static; }
+  .form-palette > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-metadata-grid, .field-properties { grid-template-columns: minmax(0, 1fr); }
+  .form-editor-actions > div { width: 100%; }
+  .form-editor-actions .button { flex: 1 1 auto; }
+  .request-card { padding: 20px; gap: 12px; }
+  .request-card h2 { font-size: 19px; }
+  .builder-field > header { flex-wrap: wrap; }
+  .form-submit-row { flex-wrap: wrap; }
+  .form-submit-row .button { flex: 1 1 auto; }
+}

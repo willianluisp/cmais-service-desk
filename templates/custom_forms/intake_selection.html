@@ -1,17 +1,13 @@
-{% extends "base.html" %}
-{% block title %}Novo chamado{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Abrir chamado{% endblock %}
 {% block content %}
-<header class="page-heading"><h1>Novo chamado</h1><p>Selecione a empresa e depois o departamento para escolher o formulário.</p></header>
+<header class="page-heading"><p class="eyebrow">NOVA SOLICITAÇÃO</p><h1>Abrir chamado</h1><p>Siga as etapas para enviar seu pedido.</p></header>
+<div class="wizard-layout"><section class="ticket-section wizard-main">
+{% if company %}{% include 'includes/intake_progress.html' with step=2 %}{% else %}{% include 'includes/intake_progress.html' with step=1 %}{% endif %}
+<h2>{% if company %}Qual é o seu departamento?{% else %}Para qual empresa é a solicitação?{% endif %}</h2><p class="helptext">{% if company %}Escolha o setor em que você trabalha. Os departamentos são compartilhados por todas as empresas.{% else %}Escolha a empresa em que você está trabalhando. Isso ajuda a identificar seu pedido.{% endif %}</p>
 <form method="get" class="ticket-form">
-{% if company %}
-<p><strong>Empresa:</strong> {{ company.name }}</p><input type="hidden" name="company" value="{{ company.pk }}">
-<label for="sector">Departamento</label><select id="sector" name="sector" required><option value="">Selecione o departamento</option>{% for sector in sectors %}<option value="{{ sector.pk }}">{{ sector.name }}</option>{% endfor %}</select>
-{% if not sectors %}<p role="status">Nenhum departamento ativo. Solicite o cadastro ao administrador.</p>{% endif %}
-<a href="?">Alterar empresa</a>
-{% else %}
-<label for="company">Empresa</label><select id="company" name="company" required><option value="">Selecione a empresa</option>{% for company in companies %}<option value="{{ company.pk }}">{{ company.name }}</option>{% endfor %}</select>
-{% if not companies %}<p role="status">Nenhuma empresa ativa. Solicite o cadastro das empresas oficiais ao administrador.</p>{% endif %}
-{% endif %}
-<button class="button button-primary" type="submit">Continuar</button>
-</form>
+{% if company %}<input type="hidden" name="company" value="{{ company.pk }}"><div class="selection-context"><span><strong>Empresa:</strong> {{ company.name }}</span><a href="?">Alterar empresa</a></div><fieldset class="choice-fieldset"><legend class="visually-hidden">Departamento obrigatório</legend><div class="choice-grid">{% for sector in sectors %}<label class="choice"><span class="choice-icon">{% include 'includes/icon.html' with name='grid' %}</span><span class="choice-copy"><b>{{ sector.name }}</b><small>Departamento compartilhado entre empresas</small></span><input type="radio" name="sector" value="{{ sector.pk }}" required {% if sector.pk == selected_sector.pk %}checked{% endif %}></label>{% empty %}<div class="notice" role="status">Nenhum departamento ativo. Solicite o cadastro ao administrador.</div>{% endfor %}</div></fieldset>
+{% else %}<fieldset class="choice-fieldset"><legend class="visually-hidden">Empresa obrigatória</legend><div class="choice-grid">{% for company in companies %}<label class="choice"><span class="choice-icon">{% include 'includes/icon.html' with name='building' %}</span><span class="choice-copy"><b>{{ company.name }}</b><small>Selecionar para esta solicitação</small></span><input type="radio" name="company" value="{{ company.pk }}" required></label>{% empty %}<div class="notice" role="status">Nenhuma empresa ativa. Solicite o cadastro das empresas oficiais ao administrador.</div>{% endfor %}</div></fieldset>{% endif %}
+<div class="wizard-actions"><a class="button button-secondary" href="{% if company %}?{% else %}{% url 'home' %}{% endif %}">{% include 'includes/icon.html' with name='back' %} {% if company %}Voltar{% else %}Cancelar{% endif %}</a><button class="button button-primary" type="submit" {% if company and not sectors or not company and not companies %}disabled{% endif %}>Continuar {% include 'includes/icon.html' with name='arrow' %}</button></div>
+</form></section>{% include 'includes/intake_summary.html' %}</div>
 {% endblock %}

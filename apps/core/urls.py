@@ -6,6 +6,7 @@ from apps.accounts import local_views
 from . import health, views
 
 urlpatterns = [
+    path("conta/", views.account, name="account"),
     path("conta/senha/", local_views.PasswordChangeView.as_view(), name="password_change"),
     path("conta/recuperar/", local_views.PasswordResetView.as_view(), name="password_reset"),
     path("conta/recuperar/enviado/", TemplateView.as_view(template_name="accounts/password_reset_done.html"), name="password_reset_done"),

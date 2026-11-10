@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{% block content_title %}<h1>Usuários</h1>{% endblock %}
+{% block result_list %}
+<details class="admin-sort"><summary>Ordenar usuários</summary><nav aria-label="Ordenação de usuários"><a href="{% querystring o='0' %}">Usuário A–Z</a><a href="{% querystring o='-0' %}">Usuário Z–A</a><a href="{% querystring o='1' %}">Primeiro nome</a><a href="{% querystring o='2' %}">Sobrenome</a><a href="{% querystring o='3' %}">Situação</a></nav></details>
+<div class="admin-people-list">{% for person in cl.result_list %}<article class="admin-person"><span class="avatar">{{ person.first_name|default:person.username|first|upper }}{{ person.last_name|first|upper }}</span><div class="admin-person-copy"><h2><a href="{% url 'admin:auth_user_change' person.pk %}">{{ person.get_full_name|default:person.username }}</a></h2><p>{{ person.username }}{% if person.email %} · {{ person.email }}{% endif %}</p><p>{% for group in person.groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% empty %}Sem grupo atribuído{% endfor %}</p></div><span class="ticket-status {% if person.is_active %}state-active{% else %}state-inactive{% endif %}">{% if person.is_active %}Ativo{% else %}Inativo{% endif %}</span><a class="button button-secondary" href="{% url 'admin:auth_user_change' person.pk %}">{% include 'includes/icon.html' with name='edit' %} Editar</a></article>{% empty %}<div class="empty-state"><h2>Nenhum usuário encontrado</h2><p>Tente outro nome ou ajuste os filtros.</p></div>{% endfor %}</div>
+{% endblock %}
+{% block content %}
+<section class="admin-introduction"><p class="admin-eyebrow">PESSOAS E ACESSOS</p><h2>Quem utiliza o portal</h2><p>Busque por nome ou usuário. Use o filtro de situação para localizar contas ativas e inativas.</p><p>Para interromper um acesso, abra a conta e desmarque <strong>Ativo</strong>. O histórico será preservado.</p></section>
+{{ block.super }}
+{% endblock %}

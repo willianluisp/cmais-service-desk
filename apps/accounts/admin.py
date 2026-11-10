@@ -6,6 +6,7 @@ from django.contrib.auth.admin import GroupAdmin, UserAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Count
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
@@ -51,6 +52,9 @@ class ManagedGroupAdmin(GroupAdmin):
     fieldsets = ((None, {'fields': ('name', 'users', 'access_summary')}),)
     readonly_fields = ('access_summary',)
     actions = None
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(member_count=Count('user', distinct=True))
 
     def access_summary(self, obj):
         if not obj or not obj.pk:
@@ -101,6 +105,9 @@ class EmployeeAdmin(UserAdmin):
     search_fields = ('username', 'first_name', 'last_name')
     filter_horizontal = ()
     actions = None
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('groups')
 
     class Media:
         js = ('js/managed-users.js',)

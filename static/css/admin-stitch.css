@@ -1,0 +1,75 @@
+/* Django Admin mantém seus formulários, filtros, validação e autorizações. */
+:root, html[data-theme=light], html[data-theme=dark] { --primary: #2366c5; --secondary: #12233e; --body-bg: #f5f7fa; --body-fg: #192a3b; --body-quiet-color: #586d82; --body-loud-color: #12233e; --link-fg: #2366c5; --link-hover-color: #155ab6; --button-bg: #2366c5; --button-hover-bg: #155ab6; --default-button-bg: #2366c5; --default-button-hover-bg: #155ab6; --border-color: #e4eaf1; --hairline-color: #e4eaf1; }
+body { font-family: Inter,"Segoe UI",Arial,sans-serif; background: #f5f7fa; color: #192a3b; font-size: 14px; }
+#container { min-width: 0; padding-left: 252px; }
+#container > .topbar { width: auto; min-height: 75px; box-sizing: border-box; }
+#container .sidebar { width: 252px; background: #12233e; box-sizing: border-box; }
+#container .sidebar a.nav-link { display: flex; align-items: center; color: #cbd7e8; text-decoration: none; }
+#container .sidebar a.nav-link.is-active { color: #fff; background: #2c4a70; }
+#container .sidebar a.nav-link:hover { background: #203b5d; }
+#container .sidebar p { margin: 0; }
+#container .sidebar .nav-label { margin: 14px 13px 9px; }
+#container .sidebar .side-support p { margin: 6px 0 12px; }
+#container .sidebar .side-footer { margin: 15px 5px 2px; }
+#container .sidebar .brand { margin-bottom: 22px; }
+#container .topbar a { color: #2366c5; }
+#container .topbar .account-popover { z-index: 50; }
+#container .topbar .account-popover strong { color: #12233e; }
+body.navigation-collapsed #container { padding-left: 0; }
+#main.main { margin-left: 0; display: block; min-height: auto; }
+#content-start { max-width: 1500px; width: 100%; box-sizing: border-box; padding: 0; margin: 0 auto; }
+#content { width: auto; padding: 28px 36px 58px; box-sizing: border-box; }
+#content h1 { font-size: 26px; letter-spacing: -.8px; color: #12233e; margin-bottom: 25px; }
+div.breadcrumbs { background: #f5f7fa; color: #586d82; padding: 18px 36px 0; font-size: 12px; }
+div.breadcrumbs a { color: #2366c5; }
+.module { border-radius: 15px; box-shadow: 0 6px 28px rgb(27 47 73 / 4.5%); border: 1px solid #e4eaf1; background: #fff; }
+.module h2, .module caption { background: #f7f9fb; color: #12233e; font-size: 13px; }
+.module a.section:link, .module a.section:visited { color: #12233e; }
+.admin-introduction { margin-bottom: 18px; border-radius: 15px; padding: 20px 22px; }
+.admin-introduction h2 { font-size: 17px; }
+.admin-introduction p { font-size: 12px; }
+.admin-introduction .admin-eyebrow { color: #557caa; }
+#changelist .actions, #changelist #toolbar { padding: 17px 18px; }
+#changelist .results th, #changelist .results td { font-size: 12px; }
+#changelist .results thead th { background: #f7f9fb; color: #586d82; font-size: 10px; letter-spacing: .45px; }
+#changelist-filter { background: #fff; border-radius: 15px; }
+.object-tools a:link, .object-tools a:visited { background: #2366c5; border: 1px solid #2366c5; min-height: 44px; border-radius: 9px; font-size: 12px; padding: 10px 15px; box-sizing: border-box; text-transform: none; }
+.object-tools a.deletelink { color: #a93645; border-color: #f3c4ca; background: #fff; }
+.submit-row input.default { background: #2366c5; border: 1px solid #2366c5; }
+.form-row { padding: 18px 22px; }
+.form-row label { font-size: 12px; color: #33475f; }
+.form-row input:not([type=checkbox]):not([type=hidden]), .form-row select, .form-row textarea { border-color: #d7e1eb; background: #fff; border-radius: 9px; font-size: 13px; }
+.help, .helptext, form .aligned p.help { color: #586d82; font-size: 12px; }
+.submit-row { border-radius: 15px; }
+#content-main { min-width: 0; }
+.admin-people-list { display: grid; gap: 10px; padding: 18px; }
+.admin-person { display: flex; gap: 13px; align-items: center; padding: 15px; border: 1px solid #e4eaf1; border-radius: 11px; }
+.admin-person-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.admin-person h2 { font-size: 13px; margin: 0 0 5px; }
+.module .admin-person h2, .module .admin-group-card h2 { background: transparent; padding: 0; }
+.admin-person h2 a { color: #12233e; }
+.admin-person p { font-size: 11px; color: #586d82; margin: 3px 0; }
+.admin-person .button { flex-shrink: 0; }
+.admin-sort { font-size: 12px; padding: 0 18px; }
+.admin-sort nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.admin-sort a { padding: 8px 12px; border: 1px solid #e4eaf1; border-radius: 8px; min-height: 44px; box-sizing: border-box; }
+.admin-group-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; padding: 18px; }
+.admin-group-card { padding: 22px; border: 1px solid #e4eaf1; border-radius: 15px; min-width: 0; overflow-wrap: anywhere; }
+.admin-group-card h2 { margin: 15px 0 8px; font-size: 14px; }
+.admin-group-card p { font-size: 12px; color: #586d82; }
+.admin-group-card .settings-row strong { font-size: 12px; }
+body.popup #container { padding-left: 0; }
+@media (max-width: 820px) {
+  #container { padding-left: 0; }
+  #content { padding: 23px 17px 40px; }
+  #content h1 { font-size: 23px; }
+  #container > .topbar { min-height: 65px; }
+  div.breadcrumbs { padding: 18px 17px 0; }
+  #container .sidebar { width: min(300px,calc(100vw - 40px)); }
+  #content-start { max-width: 100%; }
+  .form-row input:not([type=checkbox]):not([type=hidden]), .form-row select, .form-row textarea { font-size: 16px; }
+  .admin-person { flex-wrap: wrap; }
+  .admin-person-copy { flex-basis: 65%; }
+  .admin-people-list { padding: 12px; }
+  .admin-group-grid { grid-template-columns: minmax(0,1fr); }
+}

@@ -71,8 +71,6 @@ def _publish(definition):
     if definition.trashed_at:
         raise ValidationError("Restaure o formulário da lixeira antes de publicá-lo.")
     fields = validate_fields(definition.fields)
-    if not fields:
-        raise ValidationError("Adicione pelo menos um campo antes de publicar.")
     if definition.status == FormDefinition.Status.ARCHIVED:
         raise ValidationError("Formulário arquivado. Duplique-o para criar uma nova solicitação.")
     if definition.provision_key == "offboarding":
@@ -249,7 +247,7 @@ def submit_request(*, actor, form_id, cleaned):
                 raise ValidationError("Um setor selecionado foi desativado. Recarregue o formulário.")
             ticket = create_ticket(actor=actor, title=cleaned["title"], priority=cleaned["priority"],
                 description=f"Solicitação pelo formulário {published['title']}. As respostas estão disponíveis no portal.",
-                submission_key=key, company=company, sector=cleaned["sector"], service_location=cleaned["service_location"],
+                submission_key=key, company=company, sector=cleaned["sector"],
                 is_sensitive=published.get("is_sensitive", False),
                 restricted_group_ids=list(definition.allowed_groups.values_list("pk", flat=True)))
             answers = {}

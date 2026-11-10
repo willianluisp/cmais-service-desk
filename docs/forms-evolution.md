@@ -9,10 +9,12 @@ Os testes usam somente bancos e dados fictícios descartáveis.
 
 ## Campos globais e setores
 
-**Em qual setor você trabalha?** e **Onde o atendimento deverá ser realizado?** aparecem
-primeiro e são obrigatórios em toda abertura, incluindo suporte padrão e formulários
-publicados antes desta versão. O servidor insere e valida essas perguntas; não dependem
-do JSON editável pelo administrador. O construtor as mostra como campos fixos.
+**Empresa**, **Em qual setor você trabalha?**, **Assunto** e **Prioridade** são os únicos
+campos padrão e obrigatórios em toda abertura, incluindo suporte. Descrição, localização,
+anexos e quaisquer outras perguntas são adicionados manualmente no construtor, por formulário.
+É possível publicar sem perguntas adicionais. Em **Gerenciar formulários**, use
+**Personalizar suporte técnico** para criar sua configuração, ou abra o editor do suporte
+já existente. Salvar rascunho preserva a publicação atual; publique para disponibilizar as perguntas.
 
 A lista oficial começa vazia. Em **Administração → Gerenciar setores**, cadastrar os
 nomes definidos pela empresa, editar, ativar/desativar e escolher a ordem numérica.
@@ -25,11 +27,11 @@ O chamado guarda o ID e uma cópia do nome do setor, além da localização, em
 um setor não modifica as solicitações anteriores. Chamados antigos sem contexto
 permanecem intactos e continuam acessíveis pelas regras existentes.
 
-Perguntas antigas equivalentes são unificadas na apresentação e recebem o valor global
+Perguntas antigas equivalentes ao setor são unificadas na apresentação e recebem o valor global
 no snapshot da nova resposta quando seu ID ainda pertence à publicação anterior.
 O reconhecimento usa rótulos explícitos, normalizados sem acentos/pontuação, como
-"Setor", "Setor do colaborador", "Departamento", "Localização do atendimento" e as
-perguntas oficiais. Não confunde **Setor do colaborador desligado** com o solicitante.
+"Setor", "Setor do colaborador" e "Departamento". Localização é uma pergunta manual,
+inclusive quando usa o rótulo antigo. Não confunde **Setor do colaborador desligado** com o solicitante.
 Nenhum snapshot antigo é reescrito. Ao salvar pelo editor, os equivalentes já unificados
 deixam a lista de perguntas editáveis; as perguntas globais continuam fixas.
 

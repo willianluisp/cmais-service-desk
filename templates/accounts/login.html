@@ -1,12 +1,12 @@
-{% extends 'base.html' %}
+{% extends 'accounts/auth_base.html' %}
 {% block title %}Acesso corporativo{% endblock %}
 {% block content %}
-<div class="page-heading compact"><p class="eyebrow">IDENTIDADE CORPORATIVA</p><h1>Seu acesso.<br>Seu espaço de suporte.</h1><p class="lead">Acesse com sua conta autorizada da C+.</p></div>
+<p class="eyebrow">BEM-VINDO DE VOLTA</p><h1>Entre na sua conta</h1><p class="lead">Use suas credenciais do portal para continuar.</p>
 <section class="access-panel" aria-labelledby="access-title">
 {% if ldap_enabled %}
 <span class="pill">Acesso corporativo</span><h2 id="access-title">Entrar no Service Desk</h2><p>Informe seu usuário e sua senha.</p>
 {% if login_error %}<p class="field-errors" role="alert">{{ login_error }}</p>{% endif %}
-<form method="post" class="ticket-form">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">{{ form.non_field_errors }}{% for field in form %}<div class="form-field">{{ field.label_tag }}{{ field }}{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% if local_enabled and field.name == 'password' %}<div class="login-password-recovery"><a href="{% url 'password_reset' %}">Esqueci minha senha</a></div>{% endif %}</div>{% endfor %}<button type="submit" class="button button-primary">Entrar com minha conta <span aria-hidden="true">→</span></button></form>
+<form method="post" class="ticket-form" data-submit-feedback>{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">{{ form.non_field_errors }}{% for field in form %}<div class="form-field">{{ field.label_tag }}{{ field }}{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% if local_enabled and field.name == 'password' %}<div class="login-password-recovery"><a href="{% url 'password_reset' %}">Esqueci minha senha</a></div>{% endif %}</div>{% endfor %}<button type="submit" class="button button-primary">Entrar com minha conta <span aria-hidden="true">→</span></button></form>
 {% else %}
 <span class="pill"><span class="status-dot" aria-hidden="true"></span> Aguardando ativação</span><h2 id="access-title">Acesso corporativo em preparação</h2><p>O login será disponibilizado após a configuração e a validação do acesso ao domínio. Por enquanto, nenhuma credencial é solicitada por esta página.</p><a class="button button-primary" href="{% url 'home' %}">Voltar à visão geral <span aria-hidden="true">→</span></a>
 {% endif %}

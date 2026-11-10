@@ -1,20 +1,34 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector('input[name="attachments"]');
-  const list = document.querySelector("#attachment-preview");
-  const status = document.querySelector("#attachment-status");
   const dialog = document.querySelector("#attachment-dialog");
-  if (!input || !list || !status) return;
-  let selected = [];
-  let urls = [];
   let previewTrigger = null;
+  const inputs = [...document.querySelectorAll('.ticket-form input[type="file"]')];
+  const updaters = [];
+  inputs.forEach((input, fieldIndex) => {
+  let list = input.name === "attachments" ? document.querySelector("#attachment-preview") : null;
+  let status = input.name === "attachments" ? document.querySelector("#attachment-status") : null;
+  if (!list || !status) {
+    status = document.createElement("p");
+    status.className = "helptext";
+    status.id = `attachment-status-${fieldIndex}`;
+    status.setAttribute("role", "status");
+    list = document.createElement("ul");
+    list.className = "attachment-preview";
+    list.setAttribute("aria-label", "Arquivos selecionados");
+    input.insertAdjacentElement("afterend", status);
+    status.insertAdjacentElement("afterend", list);
+    input.setAttribute("aria-describedby", [input.getAttribute("aria-describedby"), status.id].filter(Boolean).join(" "));
+  }
+  let selected = Array.from(input.files);
+  let urls = [];
   const release = () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls = []; };
   const render = () => {
     release();
-    const error = selected.length > 5 ? "Selecione no máximo cinco arquivos." :
+    const total = inputs.reduce((count, field) => count + field.files.length, 0);
+    const error = total > 5 ? "Selecione no máximo cinco arquivos por solicitação." :
       selected.some((file) => file.size === 0 || file.size > 2 * 1024 * 1024) ? "Cada arquivo deve ter entre 1 byte e 2 MB." :
       selected.some((file) => !["application/pdf", "image/png", "image/jpeg"].includes(file.type)) ? "Use somente PDF, PNG ou JPEG." : "";
     input.setCustomValidity(error);
-    status.textContent = error || (selected.length ? `${selected.length} de 5 arquivos selecionados. Confira antes de enviar.` : "Nenhum arquivo selecionado.");
+    status.textContent = error || (selected.length ? `${selected.length} arquivo(s) neste campo · ${total} de 5 na solicitação. Confira antes de enviar.` : "Nenhum arquivo selecionado.");
     status.classList.toggle("field-errors", Boolean(error));
     list.replaceChildren(...selected.map((file, index) => {
       const item = document.createElement("li");
@@ -51,18 +65,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const transfer = new DataTransfer();
         selected.forEach((file) => transfer.items.add(file));
         input.files = transfer.files;
-        render();
+        updaters.forEach((update) => update());
         input.focus();
       });
       item.append(remove);
       return item;
     }));
   };
-  input.addEventListener("change", () => { selected = Array.from(input.files); render(); });
-  dialog?.querySelector("[data-close-preview]").addEventListener("click", () => dialog.close());
-  dialog?.addEventListener("close", () => previewTrigger?.focus());
+  updaters.push(render);
+  input.addEventListener("change", () => { selected = Array.from(input.files); updaters.forEach((update) => update()); });
   window.addEventListener("pagehide", release);
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) { selected = Array.from(input.files); render(); }
   });
+  });
+  dialog?.querySelector("[data-close-preview]")?.addEventListener("click", () => dialog.close());
+  dialog?.addEventListener("close", () => previewTrigger?.focus());
+  updaters.forEach((update) => update());
 });

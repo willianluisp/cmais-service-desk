@@ -1,7 +1,6 @@
-{% extends "admin/base.html" %}
-{% load static %}
+{% extends 'admin/base.html' %}{% load static %}
 {% block title %}{{ title }} · Administração C+{% endblock %}
-{% block extrahead %}{{ block.super }}{% include 'includes/favicon.html' %}{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin-cmais.css' %}">{% endblock %}
-{% block branding %}<div class="cmais-admin-brand"><a href="{% url 'home' %}"><img src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contadores" width="204" height="42"></a><span>Service Desk · Administração</span></div>{% endblock %}
-{% block nav-global %}<nav aria-label="Administração" class="cmais-portal-link"><a href="{% url 'home' %}">Voltar ao portal</a>{% if can_manage_users %} · <a href="{% url 'admin:auth_user_changelist' %}">Usuários</a> · <a href="{% url 'admin:auth_group_changelist' %}">Grupos</a>{% endif %}{% if is_portal_administrator %} · <a href="{% url 'custom_forms:manage' %}">Formulários</a>{% endif %}</nav>{% endblock %}
+{% block extrahead %}{{ block.super }}{% include 'includes/favicon.html' %}<link rel="stylesheet" href="{% static 'css/portal.css' %}"><link rel="stylesheet" href="{% static 'css/redesign.css' %}"><link rel="stylesheet" href="{% static 'css/stitch.css' %}"><link rel="stylesheet" href="{% static 'css/stitch-portal.css' %}"><link rel="stylesheet" href="{% static 'css/admin-cmais.css' %}"><link rel="stylesheet" href="{% static 'css/admin-stitch.css' %}"><script src="{% static 'js/admin-experience.js' %}" defer></script><script src="{% static 'js/experience.js' %}" defer></script>{% endblock %}
+{% block header %}{% include 'includes/navigation.html' %}{% include 'includes/topbar.html' %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block extrabody %}{{ block.super }}<button type="button" class="navigation-scrim" data-navigation-close aria-label="Fechar menu" hidden></button>{% endblock %}

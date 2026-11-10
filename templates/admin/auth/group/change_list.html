@@ -1,0 +1,7 @@
+{% extends "admin/change_list.html" %}
+{% block content_title %}<h1>Grupos de acesso</h1>{% endblock %}
+{% block result_list %}<div class="admin-group-grid">{% for group in cl.result_list %}<article class="admin-group-card"><span class="mini-icon">{% include 'includes/icon.html' with name='shield' %}</span><h2>{{ group.name }}</h2><p>{% if group.name == 'ADMIN_PORTAL' %}Administração de chamados, formulários e integração.{% else %}Grupo de acesso. As permissões específicas são apresentadas ao abrir o cadastro.{% endif %}</p><div class="settings-row"><strong>{{ group.member_count }} integrante{{ group.member_count|pluralize:'s' }}</strong><a class="button button-secondary" href="{% url 'admin:auth_group_change' group.pk %}">Gerenciar {% include 'includes/icon.html' with name='chevron' %}</a></div></article>{% empty %}<div class="empty-state"><h2>Nenhum grupo encontrado</h2><p>Tente outro nome ou adicione um novo grupo.</p></div>{% endfor %}</div>{% endblock %}
+{% block content %}
+<section class="admin-introduction"><p class="admin-eyebrow">PESSOAS E ACESSOS</p><h2>Grupos de acesso</h2><p>Grupos definem quem pode acessar formulários e recursos do portal. Departamentos identificam onde a pessoa trabalha e são um cadastro separado.</p><p>Abra um grupo para gerenciar seus participantes. O grupo <strong>ADMIN_PORTAL</strong> concede administração do portal.</p></section>
+{{ block.super }}
+{% endblock %}

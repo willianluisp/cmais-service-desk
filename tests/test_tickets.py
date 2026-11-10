@@ -232,7 +232,7 @@ def test_admin_portal_can_read_ticket_and_attachments_but_other_roles_cannot(
     download.close()
 
 
-def test_ticket_form_rejects_more_than_five_attachments(ticket):
+def test_ticket_form_ignores_unconfigured_attachments(ticket, intake_data):
     from apps.tickets.forms import TicketForm
 
     uploads = [
@@ -241,6 +241,7 @@ def test_ticket_form_rejects_more_than_five_attachments(ticket):
     ]
     form = TicketForm(
         data={
+            **intake_data,
             "title": "Muitos anexos",
             "description": "Teste de limite",
             "category": ticket.category_id,
@@ -248,8 +249,8 @@ def test_ticket_form_rejects_more_than_five_attachments(ticket):
         },
         files=MultiValueDict({"attachments": uploads}),
     )
-    assert not form.is_valid()
-    assert "no máximo cinco" in form.errors["attachments"][0]
+    assert form.is_valid(), form.errors
+    assert "attachments" not in form.cleaned_data
 
 
 @pytest.mark.parametrize("person_index", [2, 3])

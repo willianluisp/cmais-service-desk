@@ -24,6 +24,8 @@ def _ticket(request, pk):
 @never_cache
 def ticket_list(request):
     tickets = visible_tickets(request.user, Ticket.objects.all())
+    if request.GET.get("view") == "mine":
+        tickets = tickets.filter(requester=request.user)
     query = request.GET.get("q", "").strip()[:160]
     status = request.GET.get("status", "")
     priority = request.GET.get("priority", "")
@@ -80,7 +82,8 @@ def ticket_create(request, standard=False):
     form = TicketForm(request.POST if request.method == "POST" else None, files or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            ticket = create_ticket(actor=request.user, **form.cleaned_data)
+            ticket = create_ticket(actor=request.user,
+                description="Solicitação de suporte técnico pelo portal.", **form.cleaned_data)
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
@@ -99,6 +102,7 @@ def _detail(request, ticket, *, response_status=200):
     submission = FormSubmission.objects.filter(ticket=ticket).first()
     return render(request, "tickets/detail.html", {
         "ticket": ticket, "events": events, "attachments": attachments,
+        "comments": ticket.comments.filter(is_internal=False).select_related("author"),
         "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],
         "is_owner": ticket.requester_id == request.user.pk,
         "can_delete_ticket": request.user.is_active and request.user.groups.filter(name="ADMIN_PORTAL").exists(),

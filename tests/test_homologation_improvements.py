@@ -227,8 +227,8 @@ def test_internal_home_and_shared_brand(client, manager):
         if response.status_code == 200:
             assert b'brand/cmais-logo.svg' in response.content
     home = client.get('/')
-    assert 'Abrir chamado' in home.content.decode()
-    assert 'Acompanhar solicitações' in home.content.decode()
+    assert 'Abrir solicitação' in home.content.decode()
+    assert 'Acompanhar meus chamados' in home.content.decode()
     assert b'institucional.avif' not in home.content
     client.logout()
     home = client.get('/')

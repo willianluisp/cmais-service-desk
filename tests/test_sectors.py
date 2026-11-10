@@ -45,24 +45,24 @@ def test_fields_precede_existing_fields_and_filter_active_sectors(sector):
     form = forms.Form()
     form.fields["description"] = forms.CharField()
     add_global_fields(form)
-    assert list(form.fields) == ["company", "sector", "service_location", "description"]
+    assert list(form.fields) == ["company", "sector", "description"]
     assert list(form.fields["sector"].queryset) == [first, sector]
     assert form.fields["sector"].required
-    assert form.fields["service_location"].required
+    assert "service_location" not in form.fields
     bound = forms.Form({"sector": inactive.pk, "service_location": "Sala 2"})
     add_global_fields(bound)
     assert not bound.is_valid()
     assert "sector" in bound.errors
 
 
-def test_location_is_required_and_limited_to_255_characters(sector):
+def test_location_is_not_injected_into_forms(sector, intake_data):
     from apps.sectors.intake import add_global_fields
 
     for location in ("", " " * 3, "a" * 256):
-        form = forms.Form({"sector": sector.pk, "service_location": location})
+        form = forms.Form({**intake_data, "sector": sector.pk, "service_location": location})
         add_global_fields(form)
-        assert not form.is_valid()
-        assert "service_location" in form.errors
+        assert form.is_valid()
+        assert "service_location" not in form.cleaned_data
 
 
 def test_empty_sector_catalog_does_not_create_implicit_options():
@@ -102,7 +102,7 @@ def test_context_rechecks_sector_and_location(ticket, sector):
         save_intake_context(ticket=ticket, sector=sector, service_location="Sala 1")
     assert not TicketIntakeContext.objects.exists()
     Sector.objects.filter(pk=sector.pk).update(is_active=True)
-    for location in (" ", "a" * 256):
+    for location in ("a" * 256,):
         with pytest.raises(ValidationError):
             save_intake_context(ticket=ticket, sector=sector, service_location=location)
 

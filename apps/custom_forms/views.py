@@ -3,6 +3,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,6 +18,7 @@ from .models import FormDefinition
 from .ordering import card_rank, order_state, save_order
 from .schema import FIELD_TYPES, ICONS
 from .services import (
+    audit,
     available_forms,
     deletion_blockers,
     perform_action,
@@ -36,7 +38,23 @@ def manage(request):
     if status in FormDefinition.Status.values:
         rows = rows.filter(status=status)
     return render(request, "custom_forms/manage.html", {"definitions": rows, "statuses": FormDefinition.Status.choices,
-        "selected_status": status, "active_page": "forms"})
+        "selected_status": status, "active_page": "forms",
+        "support_definition": FormDefinition.objects.filter(provision_key="support").first()})
+
+
+@require_POST
+@never_cache
+@administrator
+@transaction.atomic
+def configure_support(request):
+    definition, created = FormDefinition.objects.get_or_create(provision_key="support", defaults={
+        "title": "Suporte técnico", "icon": "support", "display_order": 0, "fields": [],
+    })
+    if created:
+        audit(request.user, "FORM_CREATED", definition)
+    if definition.trashed_at:
+        return redirect("custom_forms:trash")
+    return redirect("custom_forms:edit", pk=definition.pk)
 
 
 @require_http_methods(["GET", "POST"])

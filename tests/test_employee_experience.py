@@ -25,7 +25,7 @@ def employee(client, django_user_model, settings, tmp_path):
     return client, user, Category.objects.create(name="Acesso a sistemas")
 
 
-def test_empty_form_has_instructions_and_accessible_uploads(employee, intake_data):
+def test_empty_form_has_instructions_and_only_standard_fields(employee, intake_data):
     client, _, _ = employee
     response = client.get("/chamados/novo/suporte/", intake_data)
     assert response.status_code == 200
@@ -33,7 +33,8 @@ def test_empty_form_has_instructions_and_accessible_uploads(employee, intake_dat
     assert b'aria-describedby="id_title_helptext"' in response.content
     assert b'id="attachment-dialog"' in response.content
     assert b'data-submit-feedback' in response.content
-    assert "até cinco arquivos" in response.content.decode()
+    assert 'name="attachments"' not in response.content.decode()
+    assert 'name="description"' not in response.content.decode()
     capture("create", response)
 
 
@@ -48,13 +49,15 @@ def test_empty_post_shows_errors_without_creating_ticket(employee):
     capture("create-errors", response)
 
 
-def test_success_shows_protocol_and_preserves_attachment_and_history(employee, intake_data):
+def test_success_shows_protocol_and_preserves_attachment_and_history(employee, intake_data, manual_support):
     client, owner, category = employee
     response = client.post("/chamados/novo/", {
         **intake_data,
         "title": "Não consigo acessar o sistema de trabalho", "description": "O acesso apresentou uma mensagem de erro nesta manhã.",
         "category": category.pk, "priority": "NORMAL",
-        "attachments": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),
+        "form_version": manual_support.published_version,
+        f"cf_{manual_support.fields[0]['id']}": "O acesso apresentou uma mensagem de erro nesta manhã.",
+        f"cf_{manual_support.fields[1]['id']}": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),
     }, follow=True)
     ticket = Ticket.objects.get(requester=owner)
     assert response.status_code == 200

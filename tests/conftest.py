@@ -13,6 +13,22 @@ def intake_data():
     return {"company": company.pk, "sector": sector.pk, "service_location": "Sala fictícia de testes"}
 
 
+@pytest.fixture
+def manual_support(django_user_model):
+    """Explicitly configured questions; the application never seeds them."""
+    import uuid
+
+    from apps.custom_forms.models import FormDefinition
+    from apps.custom_forms.services import publish_form
+
+    actor = django_user_model.objects.create_superuser("manual-support-admin", password="test")
+    fields = [{"id": str(uuid.uuid4()), "type": kind, "label": label, "required": True,
+               "help_text": "", "placeholder": "", "options": [], "default": ""}
+              for kind, label in [("long_text", "Descrição"), ("attachment", "Evidência")]]
+    definition = FormDefinition.objects.create(title="Suporte técnico", provision_key="support", fields=fields)
+    return publish_form(actor=actor, form_id=definition.pk, revision=definition.revision)
+
+
 @pytest.fixture(autouse=True)
 def restore_project_urlconf():
     """Keep route-specific tests from leaking their URLConf into later tests."""

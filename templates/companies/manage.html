@@ -1,10 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}Gerenciar empresas{% endblock %}
 {% block content %}
-<div class="page-heading compact"><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Gerenciar empresas</h1><p class="lead">Organize as empresas disponíveis na abertura de chamados.</p><a class="button button-primary" href="{% url 'companies:create' %}">Nova empresa</a></div>
-<section class="ticket-section" aria-label="Empresas cadastradas">
-{% for company in companies %}
-<article class="ticket-section"><h2>{{ company.name }}</h2><p>{% if company.is_active %}Ativa{% else %}Inativa{% endif %} · Ordem: {{ company.display_order }}</p><div class="form-actions"><a class="button button-secondary" href="{% url 'companies:edit' company.pk %}">Editar empresa</a><a class="button button-quiet" href="{% url 'companies:delete' company.pk %}">Excluir empresa</a></div></article>
-{% empty %}<p>Nenhuma empresa cadastrada. Cadastre a primeira empresa para disponibilizá-la nos novos chamados.</p>{% endfor %}
-</section>
+<header class="page-heading heading-with-action"><div><p class="eyebrow">ADMINISTRAÇÃO · CADASTROS</p><h1>Gerenciar empresas</h1><p class="lead">Organize empresas disponíveis na abertura de chamados.</p></div><a class="button button-primary" href="{% url 'companies:create' %}">Nova empresa</a></header>
+<p class="catalog-help">Todas as empresas usam a mesma lista de departamentos. Desativar uma empresa impede novos chamados e preserva o histórico.</p>
+<div class="catalog-grid" aria-label="Empresas cadastradas">{% for company in companies %}
+<article class="ticket-section"><span class="ticket-status {% if company.is_active %}state-active{% else %}state-inactive{% endif %}">{% if company.is_active %}Ativa{% else %}Inativa{% endif %}</span><h2>{{ company.name }}</h2><p class="helptext">Ordem de exibição: {{ company.display_order }}</p><div class="form-actions"><a class="button button-secondary" href="{% url 'companies:edit' company.pk %}">Editar empresa</a><a class="button button-quiet danger-link" href="{% url 'companies:delete' company.pk %}">Excluir empresa</a></div></article>
+{% empty %}<section class="ticket-section empty-state"><h2>Nenhuma empresa cadastrada</h2><p>Cadastre a primeira empresa para disponibilizar novos chamados.</p><a class="button button-primary" href="{% url 'companies:create' %}">Nova empresa</a></section>{% endfor %}</div>
 {% endblock %}

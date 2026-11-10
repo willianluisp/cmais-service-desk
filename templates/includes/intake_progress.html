@@ -1,0 +1,9 @@
+<nav class="intake-progress" aria-label="Etapas da solicitação">
+  <ol>
+    <li {% if step == 1 %}aria-current="step"{% endif %}><span>1</span> Empresa</li>
+    <li {% if step == 2 %}aria-current="step"{% endif %}><span>2</span> Departamento</li>
+    <li {% if step == 3 %}aria-current="step"{% endif %}><span>3</span> Formulário</li>
+    <li {% if step == 4 %}aria-current="step"{% endif %} data-progress-data><span>4</span> Informações</li>
+    <li data-progress-review><span>5</span> Revisão</li>
+  </ol>
+</nav>

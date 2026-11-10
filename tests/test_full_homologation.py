@@ -92,7 +92,7 @@ def environment(settings, monkeypatch, tmp_path, django_user_model):
 
 
 @pytest.mark.parametrize("mode", ["throttle", "timeout", "details"])
-def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, settings, mode, intake_data):
+def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, settings, mode, intake_data, manual_support):
     owner, other, technician, category, client = environment
     simulator = MicrosoftSimulator(mode)
     client.get("/chamados/novo/suporte/")
@@ -101,11 +101,13 @@ def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, 
         **intake_data,
         "title": "[SIMULAÇÃO] Estação sem acesso", "description": "Solicitação descartável sem dados reais.",
         "category": category.pk, "priority": "NORMAL",
-        "attachments": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),
+        "form_version": manual_support.published_version,
+        f"cf_{manual_support.fields[0]['id']}": "Solicitação descartável sem dados reais.",
+        f"cf_{manual_support.fields[1]['id']}": SimpleUploadedFile("evidencia.pdf", b"%PDF-1.4\n%%EOF", "application/pdf"),
     }, HTTP_X_CSRFTOKEN=csrf)
     assert response.status_code == 302
     ticket = Ticket.objects.get(requester=owner)
-    assert ticket.description == "Solicitação descartável sem dados reais."
+    assert ticket.description == "Solicitação pelo formulário Suporte técnico. As respostas estão disponíveis no portal."
     assert ticket.category.name == 'Atendimento geral'
     assert ticket.planner_provisioning.state == "PENDING"
     assert ticket.attachments.count() == 1

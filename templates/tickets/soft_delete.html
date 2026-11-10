@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Excluir chamado{% endblock %}
 {% block content %}
-<h1>Excluir chamado {{ ticket.number }}</h1><p>{{ ticket.title }}</p>
-<p>O chamado sairá das listagens e deixará de ser enviado ou sincronizado com o Planner. Os dados, anexos e a tarefa remota serão preservados.</p>
-<form method="post" class="ticket-form">{% csrf_token %}{{ form.as_p }}<button class="button button-primary" type="submit">Excluir chamado</button><a class="button button-quiet" href="{% url 'tickets:detail' ticket.pk %}">Cancelar</a></form>
+<a class="form-back" href="{% url 'tickets:detail' ticket.pk %}">← Voltar ao chamado</a>
+<header class="page-heading"><p class="eyebrow">ADMINISTRAÇÃO · EXCLUSÃO LÓGICA</p><h1>Excluir chamado {{ ticket.number }}</h1><p class="lead">{{ ticket.title }}</p></header>
+<section class="ticket-section intake-card"><h2>Os dados serão preservados</h2><p>O chamado sairá das listagens e deixará de ser enviado ou sincronizado com o Planner. Os dados, anexos e a tarefa remota serão preservados.</p><div class="notice">Um administrador poderá recuperar o chamado em <strong>Meus chamados → Chamados arquivados / excluídos</strong>.</div>
+<form method="post" class="ticket-form">{% csrf_token %}{{ form.as_p }}<div class="form-actions"><a class="button button-secondary" href="{% url 'tickets:detail' ticket.pk %}">Cancelar</a><button class="button button-danger" type="submit">Excluir chamado</button></div></form></section>
 {% endblock %}

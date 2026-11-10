@@ -151,11 +151,12 @@ def test_equivalent_global_questions_are_not_duplicated_and_values_are_snapshott
     assert page.content.decode().count("Em qual setor você trabalha?") == 1
     assert page.content.decode().count("Onde o atendimento deverá ser realizado?") == 1
     response = client.post(f"/chamados/novo/formulario/{definition.pk}/", {**intake_data, "title": "Globais fictícios", "priority": "NORMAL",
-        "form_version": 1, "sector": sector.pk, "service_location": "Sala fictícia", f"cf_{fields[2]['id']}": "Resposta fictícia"})
+        "form_version": 1, "sector": sector.pk, f"cf_{fields[1]['id']}": "Sala fictícia", f"cf_{fields[2]['id']}": "Resposta fictícia"})
     assert response.status_code == 302
     ticket = Ticket.objects.get()
     assert ticket.intake_context.sector_name_snapshot == "Setor fictício oficial"
-    assert ticket.intake_context.service_location == "Sala fictícia"
+    assert ticket.intake_context.service_location == ""
+    assert FormSubmission.objects.get(ticket=ticket).answers[fields[1]["id"]] == "Sala fictícia"
     assert FormSubmission.objects.get(ticket=ticket).answers[fields[0]["id"]] == {"id": sector.pk, "name": "Setor fictício oficial"}
     sector.name = "Nome alterado"
     sector.save()
@@ -174,10 +175,10 @@ def test_every_public_intake_requires_both_globals_first(people, client, kind, i
     client.force_login(employee)
     url = "/chamados/novo/suporte/" if kind == "standard" else f"/chamados/novo/formulario/{definition.pk}/"
     page = client.get(url, intake_data)
-    assert list(page.context["form"].fields)[:3] == ["company", "sector", "service_location"]
+    assert list(page.context["form"].fields)[:2] == ["company", "sector"]
     response = client.post(url, {"title": "Teste fictício", "description": "Teste", "priority": "NORMAL",
         "form_version": 1, f"cf_{definition.fields[0]['id']}": "Texto fictício"})
-    assert response.context["form"].errors.keys() >= {"sector", "service_location"}
+    assert response.context["form"].errors.keys() >= {"company", "sector"}
     assert not Ticket.objects.exists()
 
 

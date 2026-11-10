@@ -1,0 +1,25 @@
+{% load static %}
+<aside class="sidebar" id="portal-navigation" aria-label="Menu principal">
+  <button type="button" class="button button-quiet nav-close" data-navigation-close>Fechar menu ×</button>
+  <a class="brand" href="{% url 'home' %}" aria-label="C+ Service Desk, início"><img src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contabilidade" width="340" height="69"><span class="brand-service">Service Desk <span>Portal de atendimento</span></span></a>
+  <p class="nav-label">Meu espaço</p>
+  <nav aria-label="Navegação principal">
+    <a class="nav-link{% if active_page == 'home' %} is-active{% endif %}" href="{% url 'home' %}" {% if active_page == 'home' %}aria-current="page"{% endif %}>{% include 'includes/icon.html' with name='home' %} Início</a>
+    {% if user.is_authenticated %}
+    <a class="nav-link{% if active_page == 'new_ticket' %} is-active{% endif %}" href="{% url 'tickets:create' %}" {% if active_page == 'new_ticket' %}aria-current="page"{% endif %}>{% include 'includes/icon.html' with name='plus' %} Abrir solicitação</a>
+    <a class="nav-link{% if active_page == 'tickets' and not is_portal_administrator or active_page == 'tickets' and request.GET.view == 'mine' %} is-active{% endif %}" {% if active_page == 'tickets' and not is_portal_administrator or active_page == 'tickets' and request.GET.view == 'mine' %}aria-current="page"{% endif %} href="{% url 'tickets:list' %}{% if is_portal_administrator %}?view=mine{% endif %}">{% include 'includes/icon.html' with name='ticket' %} Meus chamados</a>
+    {% endif %}
+    {% if is_portal_administrator %}
+    <div class="nav-divider"></div><p class="nav-label">Gestão</p>
+    <a class="nav-link{% if active_page == 'tickets' and request.GET.view != 'mine' %} is-active{% endif %}" {% if active_page == 'tickets' and request.GET.view != 'mine' %}aria-current="page"{% endif %} href="{% url 'tickets:list' %}">{% include 'includes/icon.html' with name='list' %} Todos os chamados</a>
+    <a class="nav-link{% if active_page == 'forms' %} is-active{% endif %}" {% if active_page == 'forms' %}aria-current="page"{% endif %} href="{% url 'custom_forms:manage' %}">{% include 'includes/icon.html' with name='layout' %} Formulários</a>
+    <a class="nav-link{% if active_page == 'companies' %} is-active{% endif %}" {% if active_page == 'companies' %}aria-current="page"{% endif %} href="{% url 'companies:manage' %}">{% include 'includes/icon.html' with name='building' %} Empresas</a>
+    <a class="nav-link{% if active_page == 'sectors' %} is-active{% endif %}" {% if active_page == 'sectors' %}aria-current="page"{% endif %} href="{% url 'sectors:manage' %}">{% include 'includes/icon.html' with name='grid' %} Departamentos</a>
+    {% if can_manage_users %}<a class="nav-link{% if opts.model_name == 'user' %} is-active{% endif %}" {% if opts.model_name == 'user' %}aria-current="page"{% endif %} href="{% url 'admin:auth_user_changelist' %}">{% include 'includes/icon.html' with name='users' %} Usuários</a><a class="nav-link{% if opts.model_name == 'group' %} is-active{% endif %}" {% if opts.model_name == 'group' %}aria-current="page"{% endif %} href="{% url 'admin:auth_group_changelist' %}">{% include 'includes/icon.html' with name='shield' %} Grupos e permissões</a>{% endif %}
+    <a class="nav-link{% if active_page == 'integrations' %} is-active{% endif %}" {% if active_page == 'integrations' %}aria-current="page"{% endif %} href="{% url 'integrations' %}">{% include 'includes/icon.html' with name='plug' %} Microsoft Planner</a>
+    {% if can_manage_ticket_lifecycle %}<a class="nav-link" href="{% url 'tickets:archived' %}">{% include 'includes/icon.html' with name='refresh' %} Recuperação</a>{% endif %}
+    {% endif %}
+    {% if user.is_authenticated %}{% url 'account' as account_url %}{% if account_url %}<div class="nav-divider"></div><a class="nav-link{% if active_page == 'account' %} is-active{% endif %}" {% if active_page == 'account' %}aria-current="page"{% endif %} href="{{ account_url }}">{% include 'includes/icon.html' with name='user' %} Minha conta</a>{% endif %}{% endif %}
+  </nav>
+  <div class="sidebar-bottom"><div class="side-support"><b>Precisa de ajuda?</b><p>Abra uma solicitação e acompanhe seu pedido pelo portal.</p><a href="{% url 'tickets:create' %}">{% include 'includes/icon.html' with name='plus' %} Abrir solicitação</a></div><p class="side-footer">{% include 'includes/icon.html' with name='shield' %} Área interna · C+ Contadores</p></div>
+</aside>
