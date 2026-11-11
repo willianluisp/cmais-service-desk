@@ -22,13 +22,16 @@ class TicketForm(forms.ModelForm):
 
     class Meta:
         model = Ticket
-        fields = ["title", "priority"]
+        fields = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.sectors.intake import add_global_fields
 
         add_global_fields(self)
-        self.fields["title"].label = "Assunto"
-        self.fields["title"].help_text = "Resuma o que você precisa, por exemplo: Não consigo acessar o sistema."
-        self.fields["priority"].help_text = "Escolha a prioridade de acordo com o impacto no seu trabalho."
+
+    def clean(self):
+        cleaned = super().clean()
+        cleaned['title'] = 'Suporte técnico'
+        cleaned['priority'] = Ticket.Priority.NORMAL
+        return cleaned

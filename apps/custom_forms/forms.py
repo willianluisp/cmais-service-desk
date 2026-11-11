@@ -6,12 +6,15 @@ from django.contrib.auth.models import Group
 from apps.tickets.models import Ticket
 from apps.tickets.uploads import validate_upload
 
-from .globals import global_kind
+from .globals import global_kind, is_priority_question
 from .models import FormDefinition
 from .schema import ICONS, validate_fields
 
 
 class DefinitionForm(forms.ModelForm):
+    default_priority = forms.ChoiceField(label='Prioridade padrão do chamado', choices=Ticket.Priority.choices,
+        initial=Ticket.Priority.NORMAL, required=False,
+        help_text='A prioridade selecionada será aplicada automaticamente às novas solicitações deste formulário.')
     revision = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
     fields = forms.JSONField(widget=forms.HiddenInput, required=False)
     audience = forms.ModelMultipleChoiceField(
@@ -21,7 +24,7 @@ class DefinitionForm(forms.ModelForm):
 
     class Meta:
         model = FormDefinition
-        fields = ["title", "description", "icon", "display_order"]
+        fields = ["title", "description", "icon", "display_order", "default_priority"]
         labels = {"title": "Nome do formulário", "description": "Descrição", "icon": "Ícone", "display_order": "Ordem de exibição"}
         widgets = {"description": forms.Textarea(attrs={"rows": 3}), "icon": forms.Select(choices=[
             ("support", "◈ Suporte"), ("access", "⌘ Acessos"), ("people", "♧ Pessoas"),
@@ -29,6 +32,9 @@ class DefinitionForm(forms.ModelForm):
 
     def clean_fields(self):
         return validate_fields(self.cleaned_data.get("fields") or [])
+
+    def clean_default_priority(self):
+        return self.cleaned_data.get('default_priority') or self.instance.default_priority or Ticket.Priority.NORMAL
 
     def clean_icon(self):
         value = self.cleaned_data["icon"]
@@ -53,8 +59,6 @@ class PermanentDeleteForm(forms.Form):
 
 
 class RequestForm(forms.Form):
-    title = forms.CharField(label="Assunto", max_length=160)
-    priority = forms.ChoiceField(label="Prioridade", choices=Ticket.Priority.choices, initial=Ticket.Priority.NORMAL)
     submission_key = forms.UUIDField(required=False, widget=forms.HiddenInput, initial=uuid.uuid4)
     form_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
 
@@ -63,14 +67,14 @@ class RequestForm(forms.Form):
         self.snapshot = snapshot
         self.fields["form_version"].initial = snapshot.get("version", 1)
         for item in validate_fields(snapshot["fields"]):
-            if global_kind(item):
+            if global_kind(item) or is_priority_question(item):
                 continue
             kwargs = {"label": item["label"], "required": item["required"], "help_text": item["help_text"], "initial": item["default"]}
             kind = item["type"]
             attrs = {"placeholder": item["placeholder"]} if item["placeholder"] else {}
-            if kind in ("short_text", "long_text"):
+            if kind in ("subject", "short_text", "long_text"):
                 widget = forms.Textarea(attrs={**attrs, "rows": 4}) if kind == "long_text" else forms.TextInput(attrs=attrs)
-                field = forms.CharField(max_length=10000 if kind == "long_text" else 255, widget=widget, **kwargs)
+                field = forms.CharField(max_length=10000 if kind == "long_text" else 160 if kind == "subject" else 255, widget=widget, **kwargs)
             elif kind == "number":
                 field = forms.DecimalField(max_digits=18, decimal_places=4, widget=forms.NumberInput(attrs={**attrs, "step": "0.0001"}), **kwargs)
             elif kind == "date":

@@ -29,8 +29,9 @@ def test_empty_form_has_instructions_and_only_standard_fields(employee, intake_d
     client, _, _ = employee
     response = client.get("/chamados/novo/suporte/", intake_data)
     assert response.status_code == 200
-    assert b'id="id_title_helptext"' in response.content
-    assert b'aria-describedby="id_title_helptext"' in response.content
+    assert b'id="id_company_helptext"' in response.content
+    assert b'aria-describedby="id_company_helptext"' in response.content
+    assert b'name="title"' not in response.content
     assert b'id="attachment-dialog"' in response.content
     assert b'data-submit-feedback' in response.content
     assert 'name="attachments"' not in response.content.decode()
@@ -44,7 +45,7 @@ def test_empty_post_shows_errors_without_creating_ticket(employee):
     assert response.status_code == 200
     assert b'class="error-summary"' in response.content
     assert b'aria-invalid="true"' in response.content
-    assert b'href="#id_title"' in response.content
+    assert b'href="#id_company"' in response.content
     assert not Ticket.objects.exists()
     capture("create-errors", response)
 

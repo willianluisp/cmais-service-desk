@@ -143,7 +143,8 @@ def test_create_ignores_forged_owner_and_status(client, ticket, people, intake_d
         "status": "FECHADO",
     })
     assert response.status_code == 302
-    created = Ticket.objects.get(title="Forjado")
+    created = Ticket.objects.get(requester=people[1])
+    assert created.title == 'Suporte técnico'
     assert created.requester == people[1]
     assert created.status == "ABERTO"
     assert b"<script>alert(1)</script>" not in client.get(response.url).content

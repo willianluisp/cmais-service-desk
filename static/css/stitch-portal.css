@@ -143,7 +143,9 @@ main { max-width: 1500px; padding: 33px 36px 58px; }
 .choice input[type=radio] { margin: 5px 0 0 auto; order: 3; accent-color: var(--blue); width: 18px; height: 18px; }
 .ticket-form .choice input[type=radio][name] { width: 18px; min-width: 18px; max-width: 18px; height: 18px; min-height: 18px; padding: 0; margin: 5px 0 0 auto; flex: 0 0 18px; background: transparent; }
 .choice-icon { flex: 0 0 38px; }
-.choice:has(input:checked) { background: #f1f7ff; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.choice:has(input:checked), .choice[aria-pressed=true] { background: #f1f7ff; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.choice { touch-action: manipulation; }
+[data-selection-advance][aria-busy=true] .choice { cursor: progress; }
 .choice-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .choice small { color: #586d82; font-size: 11px; }
 .wizard-actions { gap: 12px; flex-wrap: wrap; }

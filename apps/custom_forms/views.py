@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from apps.planner_integration.admin_panel import administrator
 
 from .forms import DefinitionForm, PermanentDeleteForm, RequestForm
-from .globals import global_kind
+from .globals import global_kind, is_priority_question
 from .models import FormDefinition
 from .ordering import card_rank, order_state, save_order
 from .schema import FIELD_TYPES, ICONS
@@ -85,9 +85,9 @@ def editor(request, pk=None):
             fields = raw if isinstance(raw, list) and all(isinstance(f, dict) for f in raw) and len(raw) <= 40 else []
         except (ValueError, TypeError):
             fields = []
-    fields = [field for field in fields if not global_kind(field)]
+    fields = [field for field in fields if not global_kind(field) and not is_priority_question(field)]
     return render(request, "custom_forms/editor.html", {"form": form, "definition": definition, "builder_fields": fields,
-        "field_types": FIELD_TYPES, "active_page": "forms"})
+        "field_types": {key: value for key, value in FIELD_TYPES.items() if key != 'priority'}, "active_page": "forms"})
 
 
 @require_http_methods(["GET", "POST"])
@@ -165,7 +165,7 @@ def preview(request):
     if not form.is_valid():
         return render(request, "custom_forms/preview.html", {"editor_errors": form.errors, "active_page": "forms"}, status=400)
     data = form.cleaned_data
-    published = {key: data[key] for key in ("title", "description", "fields", "icon")}
+    published = {key: data[key] for key in ("title", "description", "fields", "icon", "default_priority")}
     published["version"] = 1
     published["is_sensitive"] = False
     return render(request, "custom_forms/preview.html", {"form": RequestForm(published), "snapshot": published,

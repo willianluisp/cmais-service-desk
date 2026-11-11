@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
       card.querySelector("[data-multi-default-row]").hidden = field.type !== "multiple";
       card.querySelector("[data-check-default-row]").hidden = field.type !== "checkbox";
       card.querySelector("[data-default-row]").hidden = ["multiple", "checkbox", "attachment", "sector"].includes(field.type);
-      card.querySelector("[data-placeholder-row]").hidden = !["short_text", "long_text", "number"].includes(field.type);
+      card.querySelector("[data-placeholder-row]").hidden = !["subject", "short_text", "long_text", "number"].includes(field.type);
       let defaultInput = card.querySelector('[data-property="default"]');
       if (field.type === "long_text") {
         const multiline = document.createElement("textarea");
@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else defaultInput.type = field.type === "date" ? "date" : field.type === "datetime" ? "datetime-local" : ["number", "integer"].includes(field.type) ? "number" : "text";
       if (field.type === "number") defaultInput.step = "0.0001";
       if (field.type === "integer") { defaultInput.step = "1"; defaultInput.min = "1"; }
-      defaultInput.maxLength = field.type === "long_text" ? 10000 : 255;
+      defaultInput.maxLength = field.type === "long_text" ? 10000 : field.type === "subject" ? 160 : 255;
       card.querySelectorAll("[data-property]").forEach((input) => {
         const property = input.dataset.property;
         // Stable IDs associate labels and controls without making schema keys model fields.
@@ -94,6 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const duplicate = document.createElement('button');
       duplicate.type = 'button'; duplicate.className = 'button button-quiet';
       duplicate.textContent = 'Duplicar'; duplicate.dataset.duplicateField = '';
+      duplicate.disabled = ['subject', 'priority'].includes(field.type);
       duplicate.addEventListener('click', () => {
         if (fields.length >= 40) { announce('Limite de 40 campos atingido.'); return; }
         if (field.type === 'attachment' && fields.filter(f => f.type === 'attachment').length >= 5) {
@@ -119,10 +120,13 @@ document.addEventListener("DOMContentLoaded", () => {
   editor.querySelectorAll("[data-add-field]").forEach((button) => button.addEventListener("click", () => {
     if (fields.length >= 40) { announce("Limite de 40 campos atingido."); return; }
     const kind = button.dataset.addField;
+    if (['subject', 'priority'].includes(kind) && fields.some(f => f.type === kind)) {
+      announce(`Use apenas um campo ${types[kind]} por formulário.`); return;
+    }
     if (kind === "attachment" && fields.filter((f) => f.type === kind).length >= 5) {
       announce("Use no máximo cinco campos de anexo."); return;
     }
-    fields.push({id: crypto.randomUUID(), type: kind, label: "Nova pergunta", required: false,
+    fields.push({id: crypto.randomUUID(), type: kind, label: ['subject', 'priority'].includes(kind) ? types[kind] : "Nova pergunta", required: false,
       help_text: "", placeholder: "", options: ["select", "multiple"].includes(kind) ? ["Opção 1", "Opção 2"] : [],
       default: kind === "checkbox" ? false : kind === "multiple" ? [] : ""});
     sync(); render();

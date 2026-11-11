@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.tickets.models import Ticket
+
 
 class FormDefinition(models.Model):
     class Status(models.TextChoices):
@@ -16,6 +18,7 @@ class FormDefinition(models.Model):
     description = models.TextField(max_length=1000, blank=True)
     icon = models.CharField(max_length=20, default="request")
     display_order = models.PositiveIntegerField(default=0)
+    default_priority = models.CharField(max_length=10, choices=Ticket.Priority.choices, default=Ticket.Priority.NORMAL)
     fields = models.JSONField(default=list)
     draft_audience = models.JSONField(default=list)
     allowed_groups = models.ManyToManyField("auth.Group", blank=True, related_name="available_forms")

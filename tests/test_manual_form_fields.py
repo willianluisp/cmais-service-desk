@@ -16,9 +16,9 @@ def question(label):
             "required": True, "default": "", "options": [], "help_text": "", "placeholder": ""}
 
 
-def test_company_sector_subject_and_priority_are_automatic(intake_data):
+def test_only_company_and_sector_are_automatic(intake_data):
     form = RequestForm({"version": 1, "fields": []})
-    assert [field.name for field in form.visible_fields()] == ["company", "sector", "title", "priority"]
+    assert [field.name for field in form.visible_fields()] == ["company", "sector"]
 
 
 def test_manual_location_is_a_normal_question(django_user_model, intake_data):
@@ -33,20 +33,22 @@ def test_manual_location_is_a_normal_question(django_user_model, intake_data):
     })
     assert form.is_valid(), form.errors
     ticket = submit_request(actor=actor, form_id=definition.pk, cleaned=form.cleaned_data)
-    assert ticket.title == "Título do pedido"
-    assert ticket.priority == Ticket.Priority.ALTA
+    assert ticket.title == "Pedido manual"
+    assert ticket.priority == Ticket.Priority.NORMAL
     assert ticket.intake_context.service_location == ""
     assert FormSubmission.objects.get(ticket=ticket).answers[fields[0]["id"]] == "Sala 7"
 
 
-def test_subject_and_priority_remain_required_and_validated(intake_data):
+def test_subject_is_required_when_configured_and_legacy_priority_is_ignored(intake_data):
     data = {"company": intake_data["company"], "sector": intake_data["sector"], "form_version": 1}
-    form = RequestForm({"version": 1, "fields": []}, data)
+    fields = [question('Assunto'), question('Prioridade')]
+    fields[0]['type'], fields[1]['type'] = 'subject', 'priority'
+    form = RequestForm({"version": 1, "fields": fields}, data)
     assert not form.is_valid()
-    assert set(form.errors) == {"title", "priority"}
-    form = RequestForm({"version": 1, "fields": []}, {**data, "title": "Teste", "priority": "forged"})
-    assert not form.is_valid()
-    assert set(form.errors) == {"priority"}
+    assert set(form.errors) == {f"cf_{fields[0]['id']}"}
+    form = RequestForm({"version": 1, "fields": fields}, {**data, f"cf_{fields[0]['id']}": "Teste", f"cf_{fields[1]['id']}": "forged"})
+    assert form.is_valid()
+    assert f"cf_{fields[1]['id']}" not in form.fields
 
 
 def test_can_publish_and_submit_without_manual_questions(django_user_model, intake_data):
@@ -67,13 +69,13 @@ def test_support_has_only_globals_before_manual_configuration(client, django_use
     actor = django_user_model.objects.create_user("manual-employee")
     client.force_login(actor)
     page = client.get("/chamados/novo/suporte/", intake_data)
-    assert [field.name for field in page.context["form"].visible_fields()] == ["company", "sector", "title", "priority"]
+    assert [field.name for field in page.context["form"].visible_fields()] == ["company", "sector"]
     response = client.post("/chamados/novo/suporte/", {
         "company": intake_data["company"], "sector": intake_data["sector"],
         "title": "Ajuda com acesso", "priority": "NORMAL",
     })
     assert response.status_code == 302
-    assert Ticket.objects.get().title == "Ajuda com acesso"
+    assert Ticket.objects.get().title == "Suporte técnico"
 
 
 def test_support_editor_can_be_created_only_by_admin(client, django_user_model):

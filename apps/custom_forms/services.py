@@ -18,7 +18,7 @@ from apps.tickets.models import Ticket
 from apps.tickets.services import create_ticket
 from apps.tickets.uploads import private_storage, save_attachment
 
-from .globals import global_kind
+from .globals import global_kind, is_priority_question, subject_fields
 from .models import FormDefinition, FormSubmission
 from .schema import validate_fields
 
@@ -64,7 +64,8 @@ def locked(form_id, revision):
 def snapshot(definition):
     return {"title": definition.title, "description": definition.description, "icon": definition.icon,
             "display_order": definition.display_order, "version": definition.published_version,
-            "fields": validate_fields(definition.fields), "is_sensitive": definition.is_sensitive}
+            "fields": validate_fields(definition.fields), "is_sensitive": definition.is_sensitive,
+            "default_priority": definition.default_priority}
 
 
 def _publish(definition):
@@ -113,8 +114,15 @@ def save_definition(*, actor, form_id, cleaned, publish=False):
         raise ValidationError("Formulário arquivado. Duplique-o para editar uma nova versão.")
     for name in ("title", "description", "icon", "display_order"):
         setattr(definition, name, cleaned[name])
+    definition.default_priority = cleaned.get('default_priority', definition.default_priority)
     definition.is_sensitive = definition.is_sensitive or definition.provision_key == "offboarding"
-    definition.fields = validate_fields(cleaned["fields"])
+    fields = validate_fields(cleaned['fields'])
+    # Retain hidden legacy questions in the definition; old answers/snapshots
+    # must not be deleted just because they are no longer offered to employees.
+    for index, old in enumerate(definition.fields):
+        if is_priority_question(old) and not any(field['id'] == old['id'] for field in fields):
+            fields.insert(min(index, len(fields)), copy.deepcopy(old))
+    definition.fields = validate_fields(fields)
     definition.draft_audience = [group.pk for group in cleaned["audience"]]
     definition.revision += 1 if form_id else 0
     definition.full_clean(exclude=["allowed_groups", "fields", "draft_audience", "draft_approver_groups", "published_snapshot"])
@@ -159,6 +167,7 @@ def perform_action(*, actor, form_id, revision, action):
         clone = FormDefinition.objects.create(title=f"{definition.title[:110]} (cópia)",
             description=definition.description, icon=definition.icon, display_order=definition.display_order,
             fields=copy.deepcopy(definition.fields), draft_audience=list(definition.draft_audience),
+            default_priority=definition.default_priority,
             is_sensitive=definition.is_sensitive, draft_approver_groups=list(definition.draft_approver_groups))
         audit(actor, "FORM_DUPLICATED", clone)
         return clone
@@ -232,6 +241,7 @@ def submit_request(*, actor, form_id, cleaned):
             if definition.published_version != cleaned["form_version"]:
                 raise ValidationError("O formulário foi atualizado. Recarregue esta página e confira os campos antes de enviar.")
             published = copy.deepcopy(definition.published_snapshot)
+            published['fields'] = [field for field in published['fields'] if not is_priority_question(field)]
             from apps.sectors.models import Company, Sector
 
             # Match standard intake's company -> sector lock order.
@@ -245,7 +255,13 @@ def submit_request(*, actor, form_id, cleaned):
             locked_sectors = list(Sector.objects.select_for_update().filter(pk__in=selected, is_active=True).order_by("pk"))
             if len(locked_sectors) != len(selected):
                 raise ValidationError("Um setor selecionado foi desativado. Recarregue o formulário.")
-            ticket = create_ticket(actor=actor, title=cleaned["title"], priority=cleaned["priority"],
+            subject = next((cleaned.get(f"cf_{field['id']}") for field in subject_fields(published['fields'])
+                            if cleaned.get(f"cf_{field['id']}")), '')
+            priority = published.get('default_priority', Ticket.Priority.NORMAL)
+            if priority not in Ticket.Priority.values:
+                priority = Ticket.Priority.NORMAL
+            title = (subject.strip() if isinstance(subject, str) else '') or published['title']
+            ticket = create_ticket(actor=actor, title=title[:160], priority=priority,
                 description=f"Solicitação pelo formulário {published['title']}. As respostas estão disponíveis no portal.",
                 submission_key=key, company=company, sector=cleaned["sector"],
                 is_sensitive=published.get("is_sensitive", False),

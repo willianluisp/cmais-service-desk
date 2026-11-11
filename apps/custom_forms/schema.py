@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import ValidationError
 
 FIELD_TYPES = {
+    "subject": "Assunto", "priority": "Prioridade",
     "short_text": "Texto curto", "long_text": "Texto longo", "number": "Número",
     "date": "Data", "select": "Seleção única", "multiple": "Múltipla escolha",
     "checkbox": "Checkbox", "attachment": "Anexo", "integer": "Inteiro positivo",
@@ -63,7 +64,12 @@ def validate_fields(value):
             if not isinstance(default, bool):
                 raise ValidationError(f"{label}: valor padrão deve ser verdadeiro ou falso.")
         else:
-            default = text(default if default is not None else "", label, 10000 if kind == "long_text" else 255)
+            default = text(default if default is not None else "", label, 10000 if kind == "long_text" else 160 if kind == "subject" else 255)
+            if kind == 'priority' and default:
+                from apps.tickets.models import Ticket
+
+                if default not in Ticket.Priority.values:
+                    raise ValidationError(f"{label}: prioridade padrão inválida.")
             if kind == "select" and default and default not in options:
                 raise ValidationError(f"{label}: valor padrão fora das opções.")
             if kind == "attachment" and default:
@@ -99,4 +105,7 @@ def validate_fields(value):
                        "help_text": help_text, "placeholder": placeholder, "options": options, "default": default})
     if sum(field["type"] == "attachment" for field in result) > 5:
         raise ValidationError("Use no máximo cinco campos de anexo por formulário.")
+    for kind in ('subject', 'priority'):
+        if sum(field['type'] == kind for field in result) > 1:
+            raise ValidationError(f"Use apenas um campo {FIELD_TYPES[kind]} por formulário.")
     return result

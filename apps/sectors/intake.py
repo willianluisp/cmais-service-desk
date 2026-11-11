@@ -12,11 +12,14 @@ def intake_selection(request):
     sector = Sector.objects.filter(pk=request.GET.get("sector")).first() if request.GET.get("sector", "").isdigit() else None
     company = company if company and company.is_active else None
     sector = sector if company and sector and sector.is_active else None
-    if company and sector and request.GET.get("change") != "1":
+    choosing_company = request.GET.get('change') == 'company'
+    if company and sector and request.GET.get("change") not in {"1", "company"}:
         return {"company": company.pk, "sector": sector.pk}, None
+    previous = request.GET.get('previous_sector', '')
+    remembered = Sector.objects.filter(pk=previous, is_active=True).first() if previous.isdigit() else None
     return {}, render(request, "custom_forms/intake_selection.html", {
         "companies": Company.objects.filter(is_active=True), "company": company,
-        "selected_sector": sector,
+        "selected_sector": sector or remembered, "choosing_company": choosing_company,
         "sectors": Sector.objects.filter(is_active=True) if company else Sector.objects.none(),
         "active_page": "new_ticket",
     })
