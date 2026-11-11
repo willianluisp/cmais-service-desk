@@ -1,0 +1,1 @@
+{% if observations_enabled and ticket.planner_task_id and not ticket.is_sensitive %}<span class="observation-badge" data-observation-ticket="{{ ticket.pk }}" role="status" hidden><span class="observation-dot" aria-hidden="true"></span><span data-observation-count aria-hidden="true"></span></span>{% endif %}

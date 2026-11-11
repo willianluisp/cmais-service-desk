@@ -1,9 +1,11 @@
 from django.urls import path
 
-from . import lifecycle_views, views
+from . import lifecycle_views, observation_views, views
 
 app_name = "tickets"
 urlpatterns = [
+    path('chamados/observacoes/resumos/', observation_views.summaries, name='observation-summaries'),
+    path('chamados/<uuid:pk>/observacoes/', observation_views.observations, name='observations'),
     path('chamados/<uuid:pk>/excluir/', lifecycle_views.soft_delete, name='delete'),
     path('chamados/arquivados/', lifecycle_views.archived, name='archived'),
     path('chamados/<uuid:pk>/arquivar/', lifecycle_views.archive, name='archive'),

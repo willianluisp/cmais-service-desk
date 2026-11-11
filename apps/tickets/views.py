@@ -95,6 +95,7 @@ def ticket_create(request, standard=False):
 def _detail(request, ticket, *, response_status=200):
     from apps.custom_forms.models import FormSubmission
     from apps.custom_forms.services import answer_rows
+    from apps.planner_integration.assignees import ticket_assignee_names
 
     events = ticket.events.select_related("actor")
     events = events.filter(is_internal=False)
@@ -102,6 +103,7 @@ def _detail(request, ticket, *, response_status=200):
     submission = FormSubmission.objects.filter(ticket=ticket).first()
     return render(request, "tickets/detail.html", {
         "ticket": ticket, "events": events, "attachments": attachments,
+        "planner_assignee_names": ticket_assignee_names(ticket) if not ticket.is_sensitive else [],
         "comments": ticket.comments.filter(is_internal=False).select_related("author"),
         "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],
         "is_owner": ticket.requester_id == request.user.pk,

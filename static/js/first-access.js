@@ -25,16 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const first = form.elements.new_password1;
   const second = form.elements.new_password2;
   const feedback = document.querySelector("#password-feedback");
-  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const input = document.getElementById(button.dataset.passwordToggle);
-      const visible = input.type === "password";
-      input.type = visible ? "text" : "password";
-      button.textContent = visible ? "Ocultar" : "Mostrar";
-      button.setAttribute("aria-pressed", String(visible));
-      button.setAttribute("aria-label", `${visible ? "Ocultar" : "Mostrar"} ${input.name === "new_password1" ? "nova senha" : "confirmação da nova senha"}`);
-    });
-  });
   const update = () => {
     const checks = {
       length: Array.from(first.value).length >= 8,

@@ -1,0 +1,14 @@
+/* Shares the portal's type, surfaces and semantic danger colour. */
+.observation-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--danger-ink, #b42318); font-size: 12px; font-weight: 650; vertical-align: middle; margin-inline-start: 8px; flex-shrink: 0; }
+.observation-badge[hidden], .support-observations [hidden] { display: none !important; }
+.observation-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger-ink, #b42318); display: inline-block; }
+.support-observations { min-width: 0; }
+.support-observations > summary { cursor: pointer; min-height: 44px; padding-block: 10px; color: var(--navy); font-size: 18px; font-weight: 700; }
+.support-observations > summary:focus-visible { outline: 2px solid var(--focus, #2366c5); outline-offset: 4px; border-radius: 4px; }
+.support-observation { padding-block: 16px; border-bottom: 1px solid var(--rule, #e3e8ef); }
+.support-observation:last-child { border-bottom: 0; }
+.support-observation-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.support-observation-meta time { color: var(--ink-secondary); font-size: 12px; }
+.support-observation-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; margin-block: 8px 0; }
+.support-observations .notice { margin-top: 12px; }
+@media (max-width: 600px) { .support-observations > summary { font-size: 16px; } .support-observation-meta { flex-direction: column; gap: 2px; } }

@@ -20,10 +20,14 @@ from .models import PlannerTaskProvisioning
 
 
 def _card_title(ticket):
+    from apps.custom_forms.globals import subject_fields
     from apps.custom_forms.models import FormSubmission
 
     submission = FormSubmission.objects.filter(ticket=ticket).first()
     if submission:
+        if any(submission.answers.get(field['id'])
+               for field in subject_fields(submission.schema_snapshot.get('fields', []))):
+            return ticket.title[:255]
         return submission.schema_snapshot["title"]
     return ticket.title[:255]
 
@@ -224,7 +228,8 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
                     current.save(update_fields=['state', 'attempts', 'updated_at'])
                 post_attempted = True
                 created = client.create_task(plan_id=selected_plan_id(),
-                    bucket_id=bucket_id('PLANNER_INTAKE_BUCKET_ID'), title=_card_title(ticket))
+                    bucket_id=bucket_id('PLANNER_INTAKE_BUCKET_ID'), title=_card_title(ticket),
+                    priority={'BAIXA': 9, 'NORMAL': 5, 'ALTA': 3, 'CRITICA': 1}.get(ticket.priority, 5))
                 _persist_link(provisioning, created)
             if _provisioning_active(provisioning) and hasattr(client, 'update_task_details'):
                 client.update_task_details(provisioning.ticket.planner_task_id,
@@ -312,7 +317,9 @@ def _result(ticket, changed, events):
     }
 
 
-def planner_projection(task, details):
+def planner_projection(task, details, *, graph_client=None):
+    from .assignees import resolve_assignee_names
+
     assignments = task.get("assignments", {}) if isinstance(task.get("assignments"), dict) else {}
     ids = sorted(key for key, value in assignments.items() if isinstance(value, dict))
     checklist = details.get("checklist", {}) if isinstance(details, dict) else {}
@@ -325,7 +332,7 @@ def planner_projection(task, details):
     due = task.get("dueDateTime")
     return {
         "planner_assignee_ids": ids,
-        "planner_assignee_names": ids,
+        "planner_assignee_names": resolve_assignee_names(ids, graph_client=graph_client),
         "planner_due_at": parse_datetime(due) if isinstance(due, str) else None,
         "planner_checklist": items,
         "planner_checklist_total": len(items),
@@ -405,7 +412,7 @@ def sync_ticket(*, actor, ticket_id, graph_client=None):
             return _mark_deleted(actor=actor, original=original)
         data = validate_snapshot(snapshot, original)
         details = graph_client.get_task_details(original.planner_task_id) if hasattr(graph_client, "get_task_details") else {}
-        projection = planner_projection(data, details)
+        projection = planner_projection(data, details, graph_client=graph_client)
     except PlannerError as exc:
         Ticket.objects.filter(pk=original.pk, version=original.version).update(
             sync_state=Ticket.SyncState.ERROR,

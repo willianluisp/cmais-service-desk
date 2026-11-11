@@ -1,0 +1,6 @@
+# Optional experimental task-chat reads. Apply only with compose.isolated.yaml.
+# Does not enable task publication, mail, attachments or background workers.
+services:
+  web:
+    environment:
+      PLANNER_OBSERVATIONS_ENABLED: "true"

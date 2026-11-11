@@ -1,0 +1,11 @@
+{% if observations_enabled and ticket.planner_task_id and not ticket.is_sensitive %}
+<details class="ticket-section detail-card support-observations" data-observation-panel data-ticket="{{ ticket.pk }}" data-url="{% url 'tickets:observations' ticket.pk %}">
+  <summary>Observações do suporte {% include 'tickets/_observation_badge.html' %}</summary>
+  <p class="helptext">Acompanhe aqui as mensagens da equipe de TI sobre este chamado.</p>
+  <p class="helptext" data-observation-loading>Consultando observações…</p>
+  <div data-observation-content></div>
+  <p class="helptext" data-observation-status role="status" aria-live="polite"></p>
+  <p class="notice" data-observation-storage hidden>A leitura será lembrada apenas enquanto esta página estiver aberta. O armazenamento do navegador está indisponível.</p>
+  <noscript><p class="notice">Ative o JavaScript para consultar as observações do suporte.</p></noscript>
+</details>
+{% endif %}

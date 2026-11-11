@@ -170,3 +170,10 @@ def test_default_development_database_preserves_special_characters_in_workspace_
 def test_sharepoint_attachment_publication_is_not_scheduled(settings):
     tasks = {entry["task"] for entry in settings.CELERY_BEAT_SCHEDULE.values()}
     assert "apps.planner_integration.tasks.publish_pending_attachments" not in tasks
+
+
+def test_planner_sync_and_provisioning_are_scheduled_every_five_seconds(settings):
+    schedule = settings.CELERY_BEAT_SCHEDULE
+    assert schedule["sync-linked-planner-tasks"]["schedule"] == 5.0
+    assert schedule["provision-planner-tasks"]["schedule"] == 5.0
+    assert schedule["sync-linked-planner-tasks"]["kwargs"] == {"limit": 25}

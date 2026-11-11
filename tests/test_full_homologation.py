@@ -29,7 +29,7 @@ class MicrosoftSimulator:
         self.read_timeout = False
         self.details_failed = False
 
-    def create_task(self, *, plan_id, bucket_id, title):
+    def create_task(self, *, plan_id, bucket_id, title, priority=None):
         self.create_calls += 1
         assert plan_id == "simulated-plan" and bucket_id == "simulated-pending"
         if self.mode == "throttle" and self.create_calls == 1:

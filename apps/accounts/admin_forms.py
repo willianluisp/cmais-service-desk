@@ -53,7 +53,7 @@ class ManagedUserForm(forms.ModelForm):
 class ManagedUserCreationForm(ManagedUserForm):
     temporary_password = forms.CharField(
         label='Senha temporária gerada', min_length=24, strip=False,
-        widget=forms.TextInput(attrs={'readonly': True, 'autocomplete': 'off'}),
+        widget=forms.PasswordInput(render_value=True, attrs={'readonly': True, 'autocomplete': 'off'}),
         help_text='Copie e entregue por um canal seguro. A troca será obrigatória no primeiro acesso. '
                   'Esta senha não poderá ser consultada depois de salvar.',
     )

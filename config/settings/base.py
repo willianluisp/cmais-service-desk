@@ -55,6 +55,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.accounts.permissions.portal_access",
+                "apps.planner_integration.observations.context",
             ],
         },
     },
@@ -192,7 +193,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "sync-linked-planner-tasks": {
         "task": "apps.planner_integration.tasks.synchronize_linked_tasks",
-        "schedule": 30.0,
+        "schedule": 5.0,
         "kwargs": {"limit": 25},
     },
     "provision-planner-tasks": {

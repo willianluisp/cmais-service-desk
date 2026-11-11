@@ -56,8 +56,9 @@ def test_isolated_services_share_localhost_and_disabled_integrations():
         assert environment["CSRF_TRUSTED_ORIGINS"] == "http://localhost:8010"
         assert environment["SESSION_COOKIE_NAME"] == "cmais_isolated_sessionid"
         assert environment["CSRF_COOKIE_NAME"] == "cmais_isolated_csrftoken"
-        for flag in ("MICROSOFT_GRAPH_APPROVED", "GRAPH_DELEGATED_OAUTH_ENABLED", "PLANNER_ENABLED", "EMAIL_ENABLED"):
-            assert environment[flag] == "false"
+        assert environment["EMAIL_ENABLED"] == "false"
+        for flag in ("MICROSOFT_GRAPH_APPROVED", "GRAPH_DELEGATED_OAUTH_ENABLED", "PLANNER_ENABLED"):
+            assert environment[flag] == "true"
 
 
 def test_oauth_only_override_enables_only_web_authorization():

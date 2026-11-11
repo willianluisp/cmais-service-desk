@@ -100,13 +100,20 @@ class GraphClient:
             raise PlannerError("INVALID_PAYLOAD", "Resposta do Planner inválida.") from None
         return data
 
-    def create_task(self, *, plan_id, bucket_id, title):
+    def create_task(self, *, plan_id, bucket_id, title, priority=None):
         """Create the minimal Planner card. Workflow fields remain Planner-owned."""
-        return self._request_json(
-            "https://graph.microsoft.com/v1.0/planner/tasks",
-            method="POST",
-            payload={"planId": plan_id, "bucketId": bucket_id, "title": title},
-        )
+        payload = {"planId": plan_id, "bucketId": bucket_id, "title": title}
+        if type(priority) is int and 0 <= priority <= 10:
+            payload['priority'] = priority
+        url = 'https://graph.microsoft.com/v1.0/planner/tasks'
+        try:
+            return self._request_json(url, method='POST', payload=payload)
+        except PlannerError as exc:
+            # A definite 400 rejected the creation; fallback is safe here only.
+            # Never retry an ambiguous timeout/5xx, throttling or authorization.
+            if exc.status != 400 or 'priority' not in payload:
+                raise
+            return self._request_json(url, method='POST', payload={k: v for k, v in payload.items() if k != 'priority'})
 
     def list_my_plans(self):
         url = 'https://graph.microsoft.com/v1.0/me/planner/plans'
@@ -146,6 +153,12 @@ class GraphClient:
                 raise PlannerError("INVALID_PAYLOAD", "Paginação do Planner inválida.")
             url = next_link
         raise PlannerError("INVALID_PAYLOAD", "Paginação do Planner excedeu o limite seguro.")
+
+    def get_user(self, user_id):
+        return self._request_json(
+            "https://graph.microsoft.com/v1.0/users/" + quote(user_id, safe="")
+            + "?$select=id,displayName"
+        )
 
     def get_task_details(self, task_id):
         return self._request_json(

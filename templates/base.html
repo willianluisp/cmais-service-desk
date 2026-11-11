@@ -17,8 +17,10 @@
   <link rel="stylesheet" href="{% static 'css/redesign.css' %}">
   <link rel="stylesheet" href="{% static 'css/stitch.css' %}">
   <link rel="stylesheet" href="{% static 'css/stitch-portal.css' %}">
+  {% include 'includes/password_visibility_assets.html' %}
+  {% if observations_enabled %}<link rel="stylesheet" href="{% static 'css/observations.css' %}"><script src="{% static 'js/observations.js' %}" defer></script>{% endif %}
 </head>
-<body>
+<body{% if observations_enabled %} data-observations-root data-observations-user="{{ user.pk }}" data-observations-summary-url="{% url 'tickets:observation-summaries' %}"{% endif %}>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
   <div class="portal-shell">
     {% include 'includes/navigation.html' %}
