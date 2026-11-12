@@ -5,6 +5,7 @@ must be configured and homologated independently before storage approval.
 """
 
 import hashlib
+from contextlib import ExitStack
 from datetime import timedelta
 from urllib.parse import quote, urlsplit
 
@@ -107,32 +108,37 @@ def process_publications(*, limit=10, graph_client=None):
     drive, folder = settings.GRAPH_ATTACHMENTS_DRIVE_ID, settings.GRAPH_ATTACHMENTS_FOLDER_ID
     if not drive or not folder or not settings.GRAPH_ATTACHMENTS_HOST or settings.GRAPH_AUTH_STRATEGY != "delegated":
         return 0
-    processed = 0
-    for _ in range(max(1, min(int(limit), 25))):
-        with transaction.atomic():
-            rows = AttachmentPublication.objects.filter(
-                attachment__ticket__is_sensitive=False,
-                state__in=["PENDING", "UPLOADED"], available_at__lte=timezone.now(),
-                attachment__ticket__archived_at__isnull=True,
-                attachment__ticket__planner_deleted_at__isnull=True,
-            ).exclude(attachment__ticket__planner_task_id__isnull=True).exclude(
-                attachment__ticket__planner_task_id="",
-            )
-            candidate = rows.select_related('attachment').order_by('available_at', 'pk').first()
-            if candidate is None:
-                break
-            from apps.tickets.models import Ticket
+    from apps.tickets.models import Ticket
 
-            ticket = Ticket.objects.select_for_update().filter(pk=candidate.attachment.ticket_id).first()
-            if ticket is None or ticket.archived_at or ticket.planner_deleted_at:
-                continue
-            row = rows.select_for_update().filter(pk=candidate.pk).first()
-            if row is None:
-                continue
-            row.attempts += 1
-            attachment = row.attachment
+    from .ticket_locks import JournaledGraphClient, TicketGraphBusy, ticket_graph_lock
+
+    processed = 0
+    rows = AttachmentPublication.objects.filter(
+        attachment__ticket__is_sensitive=False,
+        state__in=['PENDING', 'UPLOADED'], available_at__lte=timezone.now(),
+        attachment__ticket__archived_at__isnull=True,
+        attachment__ticket__planner_deleted_at__isnull=True,
+    ).exclude(attachment__ticket__planner_task_id__isnull=True).exclude(attachment__ticket__planner_task_id='')
+    candidates = list(rows.order_by('available_at', 'pk').values_list('pk', 'attachment__ticket_id')[:max(1, min(int(limit), 25))])
+    for pk, ticket_id in candidates:
+        with ExitStack() as stack:
             try:
-                client = graph_client or AttachmentGraphClient(token_provider=configured_planner_token_provider())
+                stack.enter_context(ticket_graph_lock(ticket_id, timeout=0))
+            except TicketGraphBusy:
+                continue
+            with transaction.atomic():
+                ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
+                if ticket is None or ticket.archived_at or ticket.planner_deleted_at:
+                    continue
+                row = rows.select_for_update().filter(pk=pk).first()
+                if row is None:
+                    continue
+                row.attempts += 1
+                attachment = row.attachment
+                row.available_at = timezone.now() + timedelta(minutes=15)
+                row.save(update_fields=['attempts', 'available_at'])
+            try:
+                client = JournaledGraphClient(graph_client or AttachmentGraphClient(token_provider=configured_planner_token_provider()), row, ticket.pk)
                 if row.drive_id and (row.drive_id != drive or row.folder_id != folder):
                     raise PlannerError("STORAGE_CHANGED", "Destino alterado; revisão necessária.")
                 client.folder_is_private(drive, folder)
@@ -145,6 +151,7 @@ def process_publications(*, limit=10, graph_client=None):
                     row.remote_web_url = approved_url(item["webUrl"])
                     row.remote_item_id = item["id"]
                     row.drive_id, row.folder_id, row.state = drive, folder, "UPLOADED"
+                    row.save(update_fields=['remote_web_url', 'remote_item_id', 'drive_id', 'folder_id', 'state'])
                 client.assert_no_sharing_links(drive, row.remote_item_id)
                 client.attach_reference(attachment.ticket.planner_task_id, row.remote_web_url, attachment.original_name)
                 row.state, row.published_at, row.last_error_code = "PUBLISHED", timezone.now(), ""
@@ -159,11 +166,17 @@ def process_publications(*, limit=10, graph_client=None):
                     "LOCAL_INTEGRITY_ERROR", "UNSAFE_FILE_URL", "STORAGE_CHANGED", "SHARING_LINK_DETECTED",
                     "INVALID_PERMISSIONS", "INVALID_FOLDER", "INVALID_REMOTE_FILE", "INVALID_PAYLOAD",
                 } else "PUBLICATION_FAILED"
-                if row.attempts >= 8 or exc.code in {"LOCAL_INTEGRITY_ERROR", "UNSAFE_FILE_URL", "STORAGE_CHANGED"}:
+                uncertain = AttachmentPublication.objects.filter(pk=row.pk, graph_write_inflight=True).exists()
+                if not uncertain and (row.attempts >= 8 or exc.code in {"LOCAL_INTEGRITY_ERROR", "UNSAFE_FILE_URL", "STORAGE_CHANGED"}):
                     row.state = "FAILED"
-                row.available_at = timezone.now() + timedelta(seconds=exc.retry_after or min(60 * 2 ** row.attempts, 3600))
+                row.available_at = timezone.now() + timedelta(seconds=exc.retry_after or min(60 * 2 ** min(row.attempts, 6), 3600))
             except (OSError, ValueError, KeyError, TypeError):
-                row.state, row.last_error_code = "FAILED", "PUBLICATION_FAILED"
-            row.save()
+                if not AttachmentPublication.objects.filter(pk=row.pk, graph_write_inflight=True).exists():
+                    row.state = 'FAILED'
+                row.last_error_code = 'PUBLICATION_FAILED'
+                row.available_at = timezone.now() + timedelta(seconds=min(60 * 2 ** min(row.attempts, 6), 3600))
+            row.save(update_fields=['attempts', 'state', 'drive_id', 'folder_id', 'remote_item_id',
+                                    'remote_web_url', 'published_at', 'last_error_code', 'available_at'])
             processed += 1
+
     return processed

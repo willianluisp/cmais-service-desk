@@ -11,6 +11,7 @@ from django.views.decorators.debug import sensitive_variables
 from apps.accounts.permissions import is_portal_admin
 from apps.notifications.models import NotificationOutbox
 from apps.planner_integration.models import AttachmentPublication, PlannerTaskProvisioning
+from apps.planner_integration.ticket_locks import ensure_no_uncertain_writes, serialized_ticket
 
 from .models import PrivateFileDeletion, Ticket, TicketDeletionAudit
 from .uploads import private_storage
@@ -37,11 +38,13 @@ def cancel_pending(ticket):
     NotificationOutbox.objects.filter(Q(ticket=ticket) | Q(event__ticket=ticket), state='PENDING').update(state='FAILED', last_error_code='ADMIN_ARCHIVED')
 
 
+@serialized_ticket
 @transaction.atomic
 def archive_ticket(*, actor, ticket_id, soft_delete=False):
     ticket = locked_ticket(actor, ticket_id)
     if ticket.archived_at:
         return
+    ensure_no_uncertain_writes(ticket)
     ticket.archived_at = timezone.now()
     ticket.archive_reason = 'ADMIN_ARCHIVED'
     ticket.version += 1
@@ -51,6 +54,7 @@ def archive_ticket(*, actor, ticket_id, soft_delete=False):
                                        action='SOFT_DELETE' if soft_delete else 'ARCHIVE')
 
 
+@serialized_ticket
 @transaction.atomic
 def restore_ticket(*, actor, ticket_id):
     ticket = locked_ticket(actor, ticket_id)
@@ -75,9 +79,11 @@ def restore_ticket(*, actor, ticket_id):
 
 
 @sensitive_variables('password')
+@serialized_ticket
 @transaction.atomic
 def permanently_delete_ticket(*, actor, ticket_id, number, irreversible, password, request=None, expected_version=None):
     ticket = locked_ticket(actor, ticket_id)
+    ensure_no_uncertain_writes(ticket)
     if not ticket.archived_at:
         raise ValidationError('Arquive o chamado antes de excluir permanentemente.')
     if expected_version is not None and ticket.version != expected_version:

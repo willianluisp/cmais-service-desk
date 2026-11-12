@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from .client import PlannerError
 from .models import PlannerTaskProvisioning
+from .ticket_locks import serialized_ticket
 
 logger = logging.getLogger(__name__)
 MAX_ITEMS = 20
@@ -60,7 +61,8 @@ def provision_checklist(provisioning, client):
         missing = [item for item in row.checklist_snapshot if item['id'] not in acknowledged]
         if not missing:
             row.checklist_completed_at = timezone.now()
-            row.save(update_fields=['checklist_completed_at'])
+            row.graph_write_inflight = False
+            row.save(update_fields=['checklist_completed_at', 'graph_write_inflight'])
             return
         uncertain_missing = set(row.checklist_inflight_ids) & {item['id'] for item in missing}
         if uncertain_missing and etag != row.checklist_inflight_etag:
@@ -83,7 +85,7 @@ def provision_checklist(provisioning, client):
             client.patch_task_checklist(ticket.planner_task_id, checklist=patch, etag=etag)
         except PlannerError as exc:
             # These responses definitely rejected the write; a timeout/5xx may not have.
-            if exc.status in {400, 401, 403, 404, 409, 412, 429}:
+            if not row.graph_write_inflight and exc.status in {400, 401, 403, 404, 409, 412, 429}:
                 row.checklist_inflight_ids = []
                 row.checklist_inflight_etag = ''
                 row.save(update_fields=['checklist_inflight_ids', 'checklist_inflight_etag'])
@@ -93,13 +95,15 @@ def provision_checklist(provisioning, client):
             raise
         row.checklist_acknowledged_ids = sorted(acknowledged | set(patch))
         row.checklist_completed_at = timezone.now()
+        row.graph_write_inflight = False
         row.checklist_inflight_ids = []
         row.checklist_inflight_etag = ''
-        row.save(update_fields=['checklist_acknowledged_ids', 'checklist_completed_at',
+        row.save(update_fields=['checklist_acknowledged_ids', 'checklist_completed_at', 'graph_write_inflight',
                                 'checklist_inflight_ids', 'checklist_inflight_etag'])
         return
 
 
+@serialized_ticket
 def accept_remote_checklist(*, actor, ticket_id, graph_client=None):
     """Explicit administrator resolution: keep the remote task exactly as it is."""
     from django.core.exceptions import PermissionDenied
@@ -134,12 +138,13 @@ def accept_remote_checklist(*, actor, ticket_id, graph_client=None):
             raise ValidationError('O chamado mudou. Recarregue antes de confirmar.')
         row.checklist_acknowledged_ids = [item['id'] for item in row.checklist_snapshot]
         row.checklist_completed_at = timezone.now()
+        row.graph_write_inflight = False
         row.checklist_inflight_ids = []
         row.checklist_inflight_etag = ''
         row.last_error_code = ''
         row.state = PlannerTaskProvisioning.State.PENDING
         row.available_at = timezone.now()
-        row.save(update_fields=['checklist_acknowledged_ids', 'checklist_completed_at',
+        row.save(update_fields=['checklist_acknowledged_ids', 'checklist_completed_at', 'graph_write_inflight',
                                 'checklist_inflight_ids', 'checklist_inflight_etag',
                                 'last_error_code', 'state', 'available_at', 'updated_at'])
         TicketEvent.objects.create(ticket=current, actor=actor, event_type='CHECKLIST_RECONCILED',

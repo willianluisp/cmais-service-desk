@@ -126,11 +126,22 @@ def _link_created_task(provisioning, task):
 
 
 def _persist_link(provisioning, task):
+    from .ticket_locks import ticket_graph_lock
+
+    with ticket_graph_lock(provisioning.ticket_id):
+        return _persist_link_locked(provisioning, task)
+
+
+def _persist_link_locked(provisioning, task):
     with transaction.atomic():
         ticket = Ticket.objects.select_for_update().get(pk=provisioning.ticket_id)
         current = PlannerTaskProvisioning.objects.select_for_update().get(pk=provisioning.pk)
+        if current.state == 'CANCELLED' or ticket.archived_at or ticket.planner_deleted_at:
+            raise PlannerError('CANCELLED', 'Chamado arquivado; vínculo cancelado.', status=409)
         current.ticket = ticket
         _link_created_task(current, task)
+        # A validated remote task ID resolves the earlier ambiguous creation.
+        current.graph_write_inflight = False
         # An archive during the HTTP request must remain cancelled locally.
         if ticket.archived_at or ticket.planner_deleted_at:
             current.state = PlannerTaskProvisioning.State.CANCELLED
@@ -138,7 +149,7 @@ def _persist_link(provisioning, task):
             # The description PATCH is a separate remote request. Keep durable
             # work until it succeeds, including a crash immediately after linking.
             current.state = PlannerTaskProvisioning.State.PENDING
-        current.save(update_fields=['state', 'updated_at'])
+        current.save(update_fields=['state', 'graph_write_inflight', 'updated_at'])
         provisioning.ticket = ticket
         provisioning.state = current.state
 
@@ -151,13 +162,42 @@ def _provisioning_active(provisioning):
 
 
 def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id=None):
+    from .ticket_locks import TicketGraphBusy, ticket_graph_lock
+
+    if graph_client is None and not automation_enabled():
+        return 0
+    limit = 1 if provisioning_id is not None else max(1, min(int(limit), 100))
+    ready = PlannerTaskProvisioning.objects.filter(
+        state__in=['PENDING', 'RECONCILIATION'], available_at__lte=timezone.now(),
+        ticket__archived_at__isnull=True, ticket__planner_deleted_at__isnull=True,
+        ticket__is_sensitive=False)
+    if provisioning_id is not None:
+        ready = ready.filter(pk=provisioning_id)
+    candidates = list(ready.order_by('available_at', 'pk').values_list('pk', 'ticket_id')[:limit])
+    processed, batch_cache = 0, {}
+    for pk, ticket_id in candidates:
+        try:
+            with ticket_graph_lock(ticket_id, timeout=0):
+                processed += _process_pending_provisioning(
+                    limit=1, graph_client=graph_client, provisioning_id=pk, batch_cache=batch_cache)
+        except TicketGraphBusy:
+            continue
+        from .models import PlannerRuntime
+
+        if batch_cache.get('stop') or PlannerRuntime.objects.filter(pk=1, throttle_until__gt=timezone.now()).exists():
+            break
+    return processed
+
+
+def _process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id=None, batch_cache=None):
     """Claim durably before HTTP; never blindly repeat an uncertain creation."""
     if graph_client is None and not automation_enabled():
         return 0
     limit = 1 if provisioning_id is not None else max(1, min(int(limit), 100))
     processed = 0
-    plan_tasks = None
-    details_cache = {}
+    batch_cache = batch_cache if batch_cache is not None else {}
+    plan_tasks = batch_cache.get('plan_tasks')
+    details_cache = batch_cache.setdefault('details', {})
     for _ in range(limit):
         if graph_client is None and not automation_enabled():
             break
@@ -184,7 +224,9 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             provisioning.save(update_fields=['available_at', 'updated_at'])
         post_attempted = False
         try:
-            client = graph_client or configured_client()
+            from .ticket_locks import JournaledGraphClient
+
+            client = JournaledGraphClient(graph_client or configured_client(), provisioning, ticket.pk)
             if ticket.planner_task_id:
                 if not _provisioning_active(provisioning):
                     continue
@@ -203,6 +245,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             if hasattr(client, 'list_plan_tasks'):
                 if plan_tasks is None:
                     plan_tasks = client.list_plan_tasks(selected_plan_id())
+                    batch_cache['plan_tasks'] = plan_tasks
                 matches = _reconciliation_matches(client, plan_tasks, ticket, provisioning, details_cache)
             if len(matches) > 1:
                 PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
@@ -259,6 +302,7 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             Ticket.objects.filter(pk=ticket.pk, archived_at__isnull=True).update(sync_state=Ticket.SyncState.ERROR, sync_error_code=exc.code)
             defer_graph(exc)
             if exc.status == 429 or exc.code == 'AUTH_REQUIRED':
+                batch_cache['stop'] = True
                 return processed + 1
         processed += 1
     return processed
@@ -372,6 +416,20 @@ def _confirm_deleted(ticket, client):
 
 
 def _mark_deleted(*, actor, original):
+    from django.core.exceptions import ValidationError
+
+    from .ticket_locks import ticket_graph_lock
+
+    try:
+        with ticket_graph_lock(original.pk):
+            return _mark_deleted_locked(actor=actor, original=original)
+    except ValidationError:
+        raise PlannerError('BUSY', 'Há uma operação do Planner em andamento ou pendente de conferência. Tente novamente após a recuperação.', status=409) from None
+
+
+def _mark_deleted_locked(*, actor, original):
+    from .ticket_locks import ensure_no_uncertain_writes
+
     with transaction.atomic():
         current = Ticket.objects.select_for_update().filter(pk=original.pk).first()
         if current is None:
@@ -380,6 +438,7 @@ def _mark_deleted(*, actor, original):
             raise Http404
         if current.version != original.version or current.planner_task_id != original.planner_task_id:
             raise PlannerError("STALE_RESPONSE", "Chamado atualizado durante a consulta.", status=409)
+        ensure_no_uncertain_writes(current)
         now = timezone.now()
         current.planner_deleted_at = now
         current.archived_at = now

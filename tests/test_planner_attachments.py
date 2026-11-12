@@ -195,3 +195,17 @@ def test_graph_sends_binary_body_without_json_conversion():
     client = AttachmentGraphClient(token_provider=lambda: "mock", opener=opener)
     assert client._request_json("https://graph.microsoft.com/v1.0/mock", method="PUT",
                                 raw_body=b"binary", content_type="application/pdf") == {"id": "item"}
+
+
+def test_local_read_error_keeps_uncertain_upload_retryable(publication, graph, monkeypatch):
+    publication.graph_write_inflight = True
+    publication.attempts = 8
+    publication.save()
+    storage = Mock()
+    storage.open.side_effect = OSError('Synthetic temporary local read failure')
+    monkeypatch.setattr('apps.planner_integration.attachments.private_storage', lambda: storage)
+    process_publications(graph_client=graph)
+    publication.refresh_from_db()
+    assert publication.state == 'PENDING' and publication.graph_write_inflight
+    assert publication.available_at > timezone.now()
+    graph.upload_attachment.assert_not_called()

@@ -6,7 +6,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect, render
@@ -442,6 +442,6 @@ def resolve_send(request):
             PlannerTaskProvisioning.objects.filter(pk=row.pk).exclude(state='CANCELLED').update(available_at=timezone.now())
             AccountAudit.objects.create(actor=request.user, action='PLANNER_SEND_RESOLVED', changes={'ticket_id': str(row.ticket_id)})
         messages.success(request, 'Tarefa existente vinculada. A descrição pendente será concluída pela fila; nenhuma nova tarefa foi criada.')
-    except (PlannerError, IntegrityError, ValueError):
+    except (PlannerError, IntegrityError, ValueError, ValidationError):
         messages.error(request, 'Vínculo não realizado. Confira se a tarefa pertence ao plano, se já está vinculada ou se há sincronização em andamento.')
     return redirect('integrations')

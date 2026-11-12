@@ -36,9 +36,13 @@ def soft_delete(request, pk):
     ticket = get_object_or_404(authorized_tickets(request.user, Ticket.objects.all()), pk=pk, archived_at__isnull=True)
     form = SoftDeletionForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST' and form.is_valid():
-        archive_ticket(actor=request.user, ticket_id=pk, soft_delete=True)
-        messages.success(request, 'Chamado excluído. Recuperação disponível em chamados arquivados.')
-        return redirect('tickets:list')
+        try:
+            archive_ticket(actor=request.user, ticket_id=pk, soft_delete=True)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, 'Chamado excluído. Recuperação disponível em chamados arquivados.')
+            return redirect('tickets:list')
     return render(request, 'tickets/soft_delete.html', {'ticket': ticket, 'form': form})
 
 
@@ -57,8 +61,12 @@ def archived(request):
 @login_required
 @require_POST
 def archive(request, pk):
-    archive_ticket(actor=request.user, ticket_id=pk)
-    messages.success(request, 'Chamado arquivado. Ele pode ser restaurado na área de arquivados.')
+    try:
+        archive_ticket(actor=request.user, ticket_id=pk)
+    except ValidationError as exc:
+        messages.error(request, '; '.join(exc.messages))
+    else:
+        messages.success(request, 'Chamado arquivado. Ele pode ser restaurado na área de arquivados.')
     return redirect('tickets:list')
 
 

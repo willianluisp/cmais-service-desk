@@ -240,7 +240,9 @@ def test_soft_delete_enforces_csrf_group_and_service_authorization(client, djang
     assert strict.post('/administracao/empresas/novo/', {'name': 'Forjado', 'display_order': 0}).status_code == 403
 
 
-def test_archive_during_remote_creation_preserves_link_without_further_writes(settings, django_user_model):
+def test_archive_during_remote_creation_is_rejected_until_finished(settings, django_user_model):
+    from django.core.exceptions import ValidationError
+
     from apps.tickets.lifecycle import archive_ticket
     from apps.tickets.models import TicketDeletionAudit
 
@@ -252,16 +254,19 @@ def test_archive_during_remote_creation_preserves_link_without_further_writes(se
     graph.list_plan_tasks.return_value = []
 
     def create(**kwargs):
-        archive_ticket(actor=admin, ticket_id=ticket.pk, soft_delete=True)
+        with pytest.raises(ValidationError, match='conferência'):
+            archive_ticket(actor=admin, ticket_id=ticket.pk, soft_delete=True)
         return {'id': 'accepted-task', 'planId': 'plan'}
 
     graph.create_task.side_effect = create
     process_pending_provisioning(graph_client=graph)
     ticket.refresh_from_db()
-    assert ticket.archived_at and ticket.planner_task_id == 'accepted-task'
-    assert ticket.planner_provisioning.state == 'CANCELLED'
+    assert not ticket.archived_at and ticket.planner_task_id == 'accepted-task'
+    assert ticket.planner_provisioning.state == 'LINKED'
+    assert not TicketDeletionAudit.objects.filter(ticket_id=ticket.pk).exists()
+    graph.update_task_details.assert_called_once()
+    archive_ticket(actor=admin, ticket_id=ticket.pk, soft_delete=True)
     assert TicketDeletionAudit.objects.get(ticket_id=ticket.pk).action == 'SOFT_DELETE'
-    graph.update_task_details.assert_not_called()
     graph.delete_task.assert_not_called()
     from apps.tickets.lifecycle import restore_ticket
 
@@ -269,7 +274,7 @@ def test_archive_during_remote_creation_preserves_link_without_further_writes(se
     ticket.refresh_from_db()
     assert ticket.planner_provisioning.state == 'PENDING'
     process_pending_provisioning(graph_client=graph)
-    graph.update_task_details.assert_called_once()
+    assert graph.update_task_details.call_count == 2
     assert graph.create_task.call_count == 1
 
 

@@ -88,15 +88,28 @@ def create_ticket(*, actor, title, description, category=None, priority, attachm
     return ticket
 
 
-@transaction.atomic
 def archive_test_tickets(*, ticket_ids):
+    from apps.planner_integration.ticket_locks import ticket_graph_lock
+
+    ids = list(Ticket.objects.filter(pk__in=ticket_ids).order_by('pk').values_list('pk', flat=True))
+    for ticket_id in ids:
+        with ticket_graph_lock(ticket_id):
+            _archive_test_ticket(ticket_id)
+    return len(ids)
+
+
+@transaction.atomic
+def _archive_test_ticket(ticket_id):
     """Explicit maintenance operation; never deletes files or calls Graph."""
     from apps.notifications.models import NotificationOutbox
     from apps.planner_integration.models import PlannerTaskProvisioning
 
     now = timezone.now()
-    tickets = list(Ticket.objects.select_for_update().filter(pk__in=ticket_ids))
-    for ticket in tickets:
+    from apps.planner_integration.ticket_locks import ensure_no_uncertain_writes
+
+    ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
+    if ticket is not None:
+        ensure_no_uncertain_writes(ticket)
         if not ticket.archived_at:
             ticket.archived_at = now
             ticket.archive_reason = "TEST_CLEANUP"
@@ -115,4 +128,3 @@ def archive_test_tickets(*, ticket_ids):
         NotificationOutbox.objects.filter(ticket=ticket, state="PENDING").update(
             state="FAILED", last_error_code="TEST_ARCHIVED",
         )
-    return len(tickets)

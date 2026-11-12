@@ -57,6 +57,8 @@ Solicitantes comuns recebem um objeto de detalhe com checklist e contadores remo
 
 ### Falha preexistente identificada no PostgreSQL
 
+**Atualização:** a correção posterior à versão `3c939d4` está descrita em [proteção de concorrência](planner-concurrency.md). O histórico abaixo registra o diagnóstico anterior à correção.
+
 `tests/test_ticket_deletion.py::test_inflight_planner_work_finishes_before_archive` espera que o arquivamento bloqueie enquanto o POST remoto da tarefa está em andamento. O worker original já libera a transação antes do HTTP e verifica o cancelamento ao persistir o vínculo; por isso o arquivamento não bloqueia como esse teste pressupõe.
 
 A mesma falha foi reproduzida isoladamente numa cópia de `git archive HEAD`, sem as alterações desta entrega, usando PostgreSQL descartável. A política de arquivamento e o teste original foram preservados, evitando uma alteração de concorrência fora do escopo. A suíte PostgreSQL completa, portanto, **não está integralmente verde**; essa divergência deve ser tratada separadamente antes da preparação de produção.
