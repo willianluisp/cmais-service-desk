@@ -64,6 +64,8 @@ def editor(request, pk=None):
     definition = get_object_or_404(FormDefinition, pk=pk, trashed_at__isnull=True) if pk else None
     initial = {"revision": definition.revision if definition else 0,
                "fields": definition.fields if definition else [],
+               "checklist_enabled": definition.checklist_enabled if definition else False,
+               "checklist_items": '\n'.join(definition.checklist_items) if definition else '',
                "audience": definition.draft_audience if definition else [],
                "is_sensitive": definition.is_sensitive if definition else False}
     form = DefinitionForm(request.POST if request.method == "POST" else None, instance=definition, initial=initial)

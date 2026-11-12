@@ -88,6 +88,11 @@ def _publish(definition):
     definition.published_version += 1
     definition.fields = fields
     definition.published_snapshot = snapshot(definition)
+    from apps.planner_integration.checklists import validate_titles
+
+    definition.published_checklist = validate_titles(definition.checklist_items) if definition.checklist_enabled else []
+    if definition.checklist_enabled and not definition.published_checklist:
+        raise ValidationError('Adicione pelo menos um item ou desabilite o checklist.')
     definition.status = FormDefinition.Status.PUBLISHED
     definition.audience_restricted = bool(definition.draft_audience)
     definition.allowed_groups.set(groups)
@@ -115,6 +120,12 @@ def save_definition(*, actor, form_id, cleaned, publish=False):
     for name in ("title", "description", "icon", "display_order"):
         setattr(definition, name, cleaned[name])
     definition.default_priority = cleaned.get('default_priority', definition.default_priority)
+    from apps.planner_integration.checklists import validate_titles
+
+    definition.checklist_enabled = cleaned.get('checklist_enabled', definition.checklist_enabled)
+    definition.checklist_items = validate_titles(cleaned.get('checklist_items', definition.checklist_items))
+    if definition.checklist_enabled and not definition.checklist_items:
+        raise ValidationError('Adicione pelo menos um item ou desabilite o checklist.')
     definition.is_sensitive = definition.is_sensitive or definition.provision_key == "offboarding"
     fields = validate_fields(cleaned['fields'])
     # Retain hidden legacy questions in the definition; old answers/snapshots
@@ -168,6 +179,7 @@ def perform_action(*, actor, form_id, revision, action):
             description=definition.description, icon=definition.icon, display_order=definition.display_order,
             fields=copy.deepcopy(definition.fields), draft_audience=list(definition.draft_audience),
             default_priority=definition.default_priority,
+            checklist_enabled=definition.checklist_enabled, checklist_items=copy.deepcopy(definition.checklist_items),
             is_sensitive=definition.is_sensitive, draft_approver_groups=list(definition.draft_approver_groups))
         audit(actor, "FORM_DUPLICATED", clone)
         return clone
@@ -285,6 +297,11 @@ def submit_request(*, actor, form_id, cleaned):
                 answers[field["id"]] = value
             FormSubmission.objects.create(ticket=ticket, definition=definition,
                 schema_snapshot=published, answers=answers)
+            if not ticket.is_sensitive and definition.published_checklist:
+                from apps.planner_integration.checklists import snapshot_items
+                provisioning = ticket.planner_provisioning
+                provisioning.checklist_snapshot = snapshot_items(ticket.pk, definition.published_checklist)
+                provisioning.save(update_fields=['checklist_snapshot'])
             return ticket
     except Exception:
         for key in saved_keys:

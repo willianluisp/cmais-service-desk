@@ -1,0 +1,12 @@
+<section class="ticket-section" data-checklist-editor aria-labelledby="checklist-title">
+  <div class="form-section-heading"><span class="form-step" aria-hidden="true">TI</span><div><h2 id="checklist-title">Checklist do Planner</h2><p>Lista interna de execução do atendimento. Não aparece para os solicitantes.</p></div></div>
+  {{ form.checklist_enabled.as_field_group }}
+  <div data-checklist-source>{{ form.checklist_items.as_field_group }}</div>
+  <div data-checklist-controls hidden>
+    <ol class="planner-checklist-editor" data-checklist-rows></ol>
+    <button class="button button-secondary" type="button" data-checklist-add>＋ Adicionar item</button>
+    <p class="helptext" data-checklist-status role="status" aria-live="polite"></p>
+  </div>
+  <details><summary>Prévia do checklist</summary><p class="helptext" data-checklist-disabled>Habilite o checklist para incluí-lo nas novas tarefas após publicar.</p><ul data-checklist-preview></ul></details>
+  {% if definition.is_sensitive %}<p class="notice">Este formulário é sensível. Os chamados permanecem somente no portal restrito e não são enviados ao Planner. O checklist não será provisionado.</p>{% endif %}
+</section>

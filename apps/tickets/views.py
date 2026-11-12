@@ -93,9 +93,17 @@ def ticket_create(request, standard=False):
 
 
 def _detail(request, ticket, *, response_status=200):
+    from apps.accounts.permissions import is_portal_admin
     from apps.custom_forms.models import FormSubmission
     from apps.custom_forms.services import answer_rows
     from apps.planner_integration.assignees import ticket_assignee_names
+    from apps.tickets.permissions import is_ti
+
+    can_view_checklist = is_ti(request.user) or is_portal_admin(request.user)
+    if not can_view_checklist:
+        # Strip the private projection before handing the ticket to any template.
+        ticket.planner_checklist = []
+        ticket.planner_checklist_completed = ticket.planner_checklist_total = 0
 
     events = ticket.events.select_related("actor")
     events = events.filter(is_internal=False)
@@ -103,6 +111,7 @@ def _detail(request, ticket, *, response_status=200):
     submission = FormSubmission.objects.filter(ticket=ticket).first()
     return render(request, "tickets/detail.html", {
         "ticket": ticket, "events": events, "attachments": attachments,
+        "can_view_planner_checklist": can_view_checklist,
         "planner_assignee_names": ticket_assignee_names(ticket) if not ticket.is_sensitive else [],
         "comments": ticket.comments.filter(is_internal=False).select_related("author"),
         "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -17,6 +18,8 @@ from .client import PlannerError, configured_client, configured_read_client
 from .configuration import automation_enabled, bucket_id, selected_plan_id
 from .jobs import defer_graph
 from .models import PlannerTaskProvisioning
+
+logger = logging.getLogger(__name__)
 
 
 def _card_title(ticket):
@@ -185,6 +188,9 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             if ticket.planner_task_id:
                 if not _provisioning_active(provisioning):
                     continue
+                from .checklists import provision_checklist
+
+                provision_checklist(provisioning, client)
                 if hasattr(client, 'update_task_details'):
                     client.update_task_details(ticket.planner_task_id,
                         description=_card_description(ticket, provisioning.correlation_id), etag='')
@@ -234,9 +240,14 @@ def process_pending_provisioning(*, limit=25, graph_client=None, provisioning_id
             if _provisioning_active(provisioning) and hasattr(client, 'update_task_details'):
                 client.update_task_details(provisioning.ticket.planner_task_id,
                     description=_card_description(ticket, provisioning.correlation_id), etag='')
+            if _provisioning_active(provisioning):
+                from .checklists import provision_checklist
+
+                provision_checklist(provisioning, client)
             PlannerTaskProvisioning.objects.filter(pk=provisioning.pk).exclude(state='CANCELLED').update(
                 state='LINKED', last_error_code='', updated_at=timezone.now())
         except PlannerError as exc:
+            logger.warning('Planner provisioning failed provisioning=%s code=%s', provisioning.pk, exc.code)
             uncertain = (post_attempted and exc.code in {'GRAPH_UNAVAILABLE', 'INVALID_PAYLOAD'})
             # Preserve previous ambiguity when reconciliation itself fails.
             uncertain = uncertain or provisioning.state == 'RECONCILIATION'
@@ -327,7 +338,9 @@ def planner_projection(task, details, *, graph_client=None):
         checklist = {}
     items = [
         {"id": key, "title": value.get("title", ""), "is_checked": bool(value.get("isChecked"))}
-        for key, value in checklist.items() if isinstance(value, dict)
+        for key, value in sorted(checklist.items(), key=lambda pair:
+            pair[1].get('orderHint', '') if isinstance(pair[1], dict)
+            and isinstance(pair[1].get('orderHint', ''), str) else '') if isinstance(value, dict)
     ]
     due = task.get("dueDateTime")
     return {

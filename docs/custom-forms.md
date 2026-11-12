@@ -1,5 +1,7 @@
 # Formulários personalizados
 
+Checklist interno opcional: [configuração, integração nativa, permissões e validação](planner-checklists.md).
+
 Evolução atual: [campos globais, setores, ordenação, presets e solicitações sensíveis](forms-evolution.md).
 As instruções de implantação e migrations adicionais desse documento têm precedência
 para a versão atual do código; os comportamentos básicos abaixo continuam aplicáveis.

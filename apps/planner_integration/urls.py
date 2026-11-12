@@ -19,4 +19,5 @@ urlpatterns = [
     path("integracoes/microsoft/conectar/", views.connect_microsoft, name="connect"),
     path("integracoes/microsoft/callback/", views.microsoft_callback, name="callback"),
     path("chamados/<uuid:ticket_id>/sincronizar/", views.synchronize, name="sync"),
+    path('chamados/<uuid:ticket_id>/checklist/aceitar-remoto/', views.accept_checklist_remote, name='accept-checklist-remote'),
 ]

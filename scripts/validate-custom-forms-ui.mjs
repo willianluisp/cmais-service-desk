@@ -43,7 +43,17 @@ async function navigate(url) {
   await until(`document.readyState === 'complete' && location.pathname === ${JSON.stringify(url)}`);
 }
 const set = (selector, value) => evaluate(`(() => {const e=document.querySelector(${JSON.stringify(selector)}); e.value=${JSON.stringify(value)}; e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-const click = selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+const click = selector => evaluate(`(() => {
+  document.querySelector(${JSON.stringify(selector)}).click();
+  document.querySelector('dialog[open] [data-confirmation-proceed]')?.click();
+})()`);
+async function chooseIntake() {
+  await navigate('/chamados/novo/');
+  await click('button[name="company"]');
+  await until(`document.querySelector('button[name="sector"]') !== null`);
+  await click('button[name="sector"]');
+  await until(`document.querySelector('.request-cards') !== null`);
+}
 async function screenshot(name) {
   await evaluate('window.scrollTo(0,0)');
   await delay(100);
@@ -78,7 +88,10 @@ try {
       const body = await readFile(filename);
       const mime = {'.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon'}[path.extname(filename)] || 'application/octet-stream';
       return call('Fetch.fulfillRequest', {requestId, responseCode:200, responseHeaders:[{name:'Content-Type', value:mime}], body:body.toString('base64')});
-    })().catch(error => errors.push(String(error)));
+    })().catch(error => {
+      // A navigation can cancel a paused request before CDP receives our reply.
+      if (!String(error).includes('Invalid InterceptionId.')) errors.push(String(error));
+    });
   };
   await call('Page.enable'); await call('Runtime.enable'); await call('Network.enable');
   await call('Fetch.enable', {patterns:[{urlPattern:'*'}]});
@@ -97,6 +110,17 @@ try {
   await until(`document.querySelector('[data-add-field]') !== null`);
   await set('#id_title', 'Solicitação fictícia de acesso');
   await set('#id_description', 'Solicite acesso aos sistemas de demonstração da C+.');
+  await click('#id_checklist_enabled');
+  await click('[data-checklist-add]');
+  await set('[data-checklist-rows] li:first-child input', 'CHECKLIST INTERNO Backup');
+  await click('[data-checklist-add]');
+  await set('[data-checklist-rows] li:last-child input', 'CHECKLIST INTERNO Validar');
+  await click('[data-checklist-rows] li:last-child button[aria-label^="Mover item para cima"]');
+  await click('[data-checklist-add]');
+  await set('[data-checklist-rows] li:last-child input', 'Remover este item');
+  await click('[data-checklist-rows] li:last-child button[aria-label^="Remover item"]');
+  assert.equal(await evaluate('document.querySelector("#id_checklist_items").value'), 'CHECKLIST INTERNO Validar\nCHECKLIST INTERNO Backup');
+  assert.equal(await evaluate('document.querySelectorAll("[data-checklist-preview] li").length'), 2);
   for (const type of ['short_text', 'select', 'multiple', 'number', 'date', 'checkbox', 'attachment', 'long_text']) {
     await click(`[data-add-field="${type}"]`);
   }
@@ -118,6 +142,8 @@ try {
   await click('button[name="action"][value="publish"]');
   await until(`location.pathname !== '/administracao/formularios/novo/' && document.readyState === 'complete' && document.body.textContent.includes('Formulário publicado.')`);
   const editorPath = await evaluate('location.pathname');
+  await until(`document.querySelectorAll('[data-checklist-rows] li').length === 2`);
+  assert.equal(await evaluate('document.querySelector("#id_checklist_items").value'), 'CHECKLIST INTERNO Validar\nCHECKLIST INTERNO Backup');
   assert.equal(await evaluate('document.querySelectorAll(".builder-field").length'), 7);
   await call('Emulation.setDeviceMetricsOverride', {width:390, height:844, deviceScaleFactor:1, mobile:true});
   await screenshot('editor-mobile');
@@ -133,7 +159,8 @@ try {
   await screenshot('ordering-mobile');
   assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile ordering overflows');
   await call('Emulation.setDeviceMetricsOverride', {width:1440, height:1100, deviceScaleFactor:1, mobile:false});
-  await navigate('/chamados/novo/');
+  await chooseIntake();
+  assert.ok(await evaluate(`!document.body.textContent.includes('CHECKLIST INTERNO')`));
   assert.ok(await evaluate(`!document.querySelector('.request-card').classList.contains('request-card-standard')`));
   assert.ok(await evaluate(`document.querySelector('.request-cards').textContent.includes('Solicitação fictícia de acesso')`));
   await screenshot('cards-desktop');
@@ -145,14 +172,13 @@ try {
   assert.ok(await evaluate(`document.querySelector('input[required][name^="cf_"]') !== null`));
   await screenshot('request-mobile');
   assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile request overflows');
-  await set('#id_title', 'Chamado fictício pelo construtor visual');
-  await evaluate(`(() => {const select=document.querySelector('#id_sector'); select.value=select.options[1].value; select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-  await set('#id_service_location', 'Sala fictícia da validação visual');
   await set('input[name^="cf_"][required]', 'ERP de demonstração');
   assert.equal(await evaluate(`document.querySelector('[data-required-choice] input').checkValidity()`), false);
   await click('[data-required-choice] input');
   assert.equal(await evaluate(`document.querySelector('[data-required-choice] input').checkValidity()`), true);
   await click('.custom-request button[type="submit"]');
+  await until(`document.querySelector('[data-review-panel]').hidden === false`);
+  await click('[data-review-send]');
   await until(`location.pathname.startsWith('/chamados/') && !location.pathname.includes('/novo/') && document.readyState === 'complete'`);
   assert.ok(await evaluate(`document.body.textContent.includes('ERP de demonstração')`));
   await navigate('/administracao/formularios/');
@@ -172,7 +198,7 @@ try {
   await until(`document.readyState === 'complete' && document.querySelector('.form-status')?.textContent.trim() === 'Arquivado'`);
   await click('button[name="action"][value="unarchive"]');
   await until(`document.readyState === 'complete' && document.querySelector('.form-status')?.textContent.trim() === 'Rascunho'`);
-  await navigate('/chamados/novo/');
+  await chooseIntake();
   assert.equal(await evaluate(`document.querySelectorAll('.request-card:not(.request-card-standard)').length`), 0);
   await navigate(editorPath);
   await click('button[name="action"][value="duplicate"]');

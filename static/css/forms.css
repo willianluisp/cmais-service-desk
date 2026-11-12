@@ -143,3 +143,11 @@
   .form-submit-row { flex-wrap: wrap; }
   .form-submit-row .button { flex: 1 1 auto; }
 }
+/* Internal Planner template editor uses the existing form palette and controls. */
+.planner-checklist-editor { list-style: none; padding: 0; margin: 1rem 0; }
+.planner-checklist-row { display: flex; align-items: end; gap: 1rem; margin-bottom: .75rem; }
+.planner-checklist-row > label { flex: 1; min-width: 0; }
+.planner-checklist-row .field-actions { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .planner-checklist-row { align-items: stretch; flex-direction: column; gap: .25rem; }
+}

@@ -1,0 +1,12 @@
+{% if can_view_planner_checklist %}
+<div class="planner-internal-checklist">
+  <h3>Checklist interno do TI · {{ ticket.planner_checklist_completed }}/{{ ticket.planner_checklist_total }}</h3>
+  <p class="helptext">Execução e personalização no Planner. Alterar esta tarefa não modifica o modelo do formulário nem outros chamados.</p>
+  {% if is_portal_administrator and ticket.planner_provisioning.last_error_code == 'CHECKLIST_RECONCILIATION' %}
+  <div class="notice">O envio teve uma resposta incerta e a lista foi alterada no Planner. Confira a tarefa: o portal não recriará possíveis itens removidos manualmente.</div>
+  <form method="post" action="{% url 'planner:accept-checklist-remote' ticket.pk %}">{% csrf_token %}<input type="hidden" name="confirm" value="yes"><button class="button button-secondary" type="submit" data-confirm="Preservar a lista atual do Planner e encerrar a inclusão automática deste checklist? Itens ausentes não serão recriados.">Conferi: manter checklist atual do Planner</button></form>
+  {% endif %}
+  {% if ticket.planner_checklist_total %}<ul>{% for item in ticket.planner_checklist %}<li>{% if item.is_checked %}Concluído{% else %}Pendente{% endif %} · {{ item.title }}</li>{% endfor %}</ul>{% else %}<p>Nenhum item sincronizado. Use Atualizar status para consultar o Planner.</p>{% endif %}
+  {% if ticket.planner_task_id %}<a class="button button-secondary" href="https://planner.cloud.microsoft/" target="_blank" rel="noopener noreferrer">Personalizar no Planner ↗</a><p class="helptext">Abra a tarefa {{ ticket.number }} no plano de atendimento. Adicione, remova ou reordene itens na Lista de verificação e edite os itens pendentes, preservando os concluídos.</p>{% endif %}
+</div>
+{% endif %}

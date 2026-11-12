@@ -187,6 +187,13 @@ class GraphClient:
                 raise PlannerError("INVALID_PAYLOAD", "Paginação de buckets inválida.")
         raise PlannerError("INVALID_PAYLOAD", "Paginação excedeu o limite seguro.")
 
+    def patch_task_checklist(self, task_id, *, checklist, etag):
+        if not isinstance(etag, str) or not etag or '\r' in etag or '\n' in etag:
+            raise PlannerError('INVALID_PAYLOAD', 'ETag de detalhes do Planner ausente ou inválido.')
+        return self._request_json(
+            'https://graph.microsoft.com/v1.0/planner/tasks/' + quote(task_id, safe='') + '/details',
+            method='PATCH', payload={'checklist': checklist}, extra_headers={'If-Match': etag})
+
     def update_task_details(self, task_id, *, description, etag):
         details = self.get_task_details(task_id)
         etag = details.get("@odata.etag") if isinstance(details, dict) else None

@@ -12,6 +12,10 @@ from .schema import ICONS, validate_fields
 
 
 class DefinitionForm(forms.ModelForm):
+    checklist_enabled = forms.BooleanField(label='Habilitar checklist automático', required=False)
+    checklist_items = forms.CharField(label='Itens do checklist', required=False, max_length=5000,
+        widget=forms.Textarea(attrs={'rows': 5}),
+        help_text='Um item por linha. Até 20 itens de 100 caracteres. Visível somente ao TI; alterações entram em vigor ao publicar.')
     default_priority = forms.ChoiceField(label='Prioridade padrão do chamado', choices=Ticket.Priority.choices,
         initial=Ticket.Priority.NORMAL, required=False,
         help_text='A prioridade selecionada será aplicada automaticamente às novas solicitações deste formulário.')
@@ -32,6 +36,14 @@ class DefinitionForm(forms.ModelForm):
 
     def clean_fields(self):
         return validate_fields(self.cleaned_data.get("fields") or [])
+
+    def clean_checklist_items(self):
+        from apps.planner_integration.checklists import validate_titles
+
+        items = validate_titles([line.strip() for line in self.cleaned_data.get('checklist_items', '').splitlines() if line.strip()])
+        if self.cleaned_data.get('checklist_enabled') and not items:
+            raise forms.ValidationError('Adicione pelo menos um item ou desabilite o checklist.')
+        return items
 
     def clean_default_priority(self):
         return self.cleaned_data.get('default_priority') or self.instance.default_priority or Ticket.Priority.NORMAL

@@ -67,6 +67,11 @@ class PlannerTaskProvisioning(models.Model):
 
     ticket = models.OneToOneField("tickets.Ticket", on_delete=models.PROTECT, related_name="planner_provisioning")
     correlation_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    checklist_snapshot = models.JSONField(default=list, blank=True)
+    checklist_acknowledged_ids = models.JSONField(default=list, blank=True)
+    checklist_inflight_ids = models.JSONField(default=list, blank=True)
+    checklist_inflight_etag = models.CharField(max_length=255, blank=True)
+    checklist_completed_at = models.DateTimeField(null=True, blank=True)
     state = models.CharField(max_length=20, choices=State, default=State.PENDING)
     attempts = models.PositiveSmallIntegerField(default=0)
     available_at = models.DateTimeField(default=timezone.now)

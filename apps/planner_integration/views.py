@@ -97,6 +97,27 @@ def synchronize(request, ticket_id):
         return response
 
 
+@require_POST
+@login_required
+@never_cache
+def accept_checklist_remote(request, ticket_id):
+    from django.core.exceptions import PermissionDenied, ValidationError
+
+    from .checklists import accept_remote_checklist
+
+    if not is_portal_admin(request.user):
+        raise PermissionDenied
+    if request.POST.get('confirm') != 'yes':
+        return HttpResponseBadRequest('Confirme a preservação do checklist atual do Planner.')
+    try:
+        accept_remote_checklist(actor=request.user, ticket_id=ticket_id)
+    except (ValidationError, PlannerError):
+        messages.error(request, 'Não foi possível confirmar o checklist. Recarregue e tente novamente.')
+    else:
+        messages.success(request, 'Checklist atual do Planner preservado. O envio será retomado sem recriar itens ausentes.')
+    return redirect('tickets:detail', pk=ticket_id)
+
+
 def _oauth_available(request):
     return (
         is_portal_admin(request.user)
