@@ -76,6 +76,7 @@ def login_view(request):
     return TemplateResponse(request, "accounts/login.html", {
         "active_page": "login", "ldap_enabled": enabled, "local_enabled": local_enabled,
         "form": form, "login_error": error, "next": target,
+        "ldap_role_source": getattr(settings, "LDAP_ROLE_SOURCE", "ad") if settings.LDAP_ENABLED else "",
     }, status=status)
 
 

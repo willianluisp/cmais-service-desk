@@ -1,5 +1,6 @@
 """Directory boundary: validate attributes, and revalidate sessions without user passwords."""
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -28,7 +29,8 @@ class DirectoryIdentity:
     roles: frozenset[str]
 
 
-def identity_from_attributes(attributes, distinguished_name, group_dns):
+def identity_from_attributes(attributes, distinguished_name, group_dns, *, require_roles=True):
+    """``require_roles=False`` é o modo em que os papéis ficam no portal."""
     attrs = {key.casefold(): value for key, value in (attributes or {}).items()}
 
     def value(name, default=""):
@@ -54,10 +56,11 @@ def identity_from_attributes(attributes, distinguished_name, group_dns):
             raise ValueError
         groups = {dn.casefold() for dn in group_dns}
         roles = frozenset(
-            role for role, dn in settings.LDAP_ROLE_GROUPS.items() if dn.casefold() in groups
+            role for role, dn in getattr(settings, "LDAP_ROLE_GROUPS", {}).items()
+            if dn.casefold() in groups
         )
         sam_name = text("sAMAccountName")
-        if not roles or not sam_name or not distinguished_name or guid.int == 0:
+        if (require_roles and not roles) or not sam_name or not distinguished_name or guid.int == 0:
             raise ValueError
         email = text("mail", 254)
         if email:
@@ -76,10 +79,10 @@ def identity_from_attributes(attributes, distinguished_name, group_dns):
         raise PermissionDenied("Directory identity rejected.") from None
 
 
-def lookup_guid(object_guid):
-    """Search by binary GUID, so renamed/recreated accounts cannot inherit a session."""
+@contextmanager
+def directory_connection():
+    """Conexão com a conta de serviço (somente leitura); erros LDAP viram DirectoryUnavailable."""
     import ldap
-    from ldap.filter import escape_filter_chars
 
     connection = None
     try:
@@ -89,6 +92,40 @@ def lookup_guid(object_guid):
         if settings.AUTH_LDAP_START_TLS:
             connection.start_tls_s()
         connection.simple_bind_s(settings.AUTH_LDAP_BIND_DN, settings.AUTH_LDAP_BIND_PASSWORD)
+        yield connection
+    except ldap.LDAPError:
+        raise DirectoryUnavailable("Directory temporarily unavailable.") from None
+    finally:
+        if connection is not None:
+            try:
+                connection.unbind_s()
+            except ldap.LDAPError:
+                pass
+
+
+def _group_dns(connection, dn):
+    import ldap
+    from ldap.filter import escape_filter_chars
+
+    groups = connection.search_s(
+        settings.AUTH_LDAP_GROUP_SEARCH_BASE, ldap.SCOPE_SUBTREE,
+        f"(&{SECURITY_GROUP_FILTER}(member:1.2.840.113556.1.4.1941:={escape_filter_chars(dn)}))",
+        ["distinguishedName"],
+    )
+    return {group_dn for group_dn, _ in groups if group_dn}
+
+
+def portal_access_allowed(group_dns):
+    """Modo portal: sem grupo de acesso configurado, qualquer conta ativa do AD pode autenticar."""
+    access_group = getattr(settings, "LDAP_ACCESS_GROUP_DN", "")
+    return not access_group or access_group.casefold() in {dn.casefold() for dn in group_dns}
+
+
+def lookup_guid(object_guid, *, require_roles=True):
+    """Search by binary GUID, so renamed/recreated accounts cannot inherit a session."""
+    import ldap
+
+    with directory_connection() as connection:
         guid_filter = "".join(f"\\{byte:02x}" for byte in object_guid.bytes_le)
         results = connection.search_s(
             settings.AUTH_LDAP_USER_SEARCH_BASE, ldap.SCOPE_SUBTREE,
@@ -98,20 +135,25 @@ def lookup_guid(object_guid):
         if len(results) != 1:
             raise PermissionDenied("Directory identity rejected.")
         dn, attrs = results[0]
-        groups = connection.search_s(
-            settings.AUTH_LDAP_GROUP_SEARCH_BASE, ldap.SCOPE_SUBTREE,
-            f"(&{SECURITY_GROUP_FILTER}(member:1.2.840.113556.1.4.1941:={escape_filter_chars(dn)}))",
-            ["distinguishedName"],
-        )
-        identity = identity_from_attributes(attrs, dn, {group_dn for group_dn, _ in groups if group_dn})
+        need_groups = require_roles or getattr(settings, "LDAP_ACCESS_GROUP_DN", "")
+        group_dns = _group_dns(connection, dn) if need_groups else set()
+        identity = identity_from_attributes(attrs, dn, group_dns, require_roles=require_roles)
         if identity.object_guid != object_guid:
             raise PermissionDenied("Directory identity rejected.")
+        if not require_roles and not portal_access_allowed(group_dns):
+            raise PermissionDenied("Directory identity rejected.")
         return identity
-    except ldap.LDAPError:
-        raise DirectoryUnavailable("Directory temporarily unavailable.") from None
-    finally:
-        if connection is not None:
-            try:
-                connection.unbind_s()
-            except ldap.LDAPError:
-                pass
+
+
+def lookup_login(login):
+    """Busca uma conta pelo sAMAccountName, sem senha do usuário (relatório de vínculos)."""
+    import ldap
+    from ldap.filter import escape_filter_chars
+
+    with directory_connection() as connection:
+        value = escape_filter_chars(login)
+        results = connection.search_s(
+            settings.AUTH_LDAP_USER_SEARCH_BASE, ldap.SCOPE_SUBTREE,
+            f"(&(objectClass=user)(sAMAccountName={value}))", USER_ATTRIBUTES,
+        )
+        return [(dn, attrs) for dn, attrs in results if dn]

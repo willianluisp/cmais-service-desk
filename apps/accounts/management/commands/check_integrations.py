@@ -16,3 +16,6 @@ class Command(BaseCommand):
             self.stdout.write(f"{name}: " + ("faltam " + ", ".join(missing) if missing else "campos presentes; requer homologação real"))
         for key in ["LOCAL_AUTH_ENABLED", "LDAP_ENABLED", "MICROSOFT_GRAPH_APPROVED", "PLANNER_ENABLED", "EMAIL_ENABLED"]:
             self.stdout.write(f"{key}: {bool(getattr(settings, key, False))}")
+        if getattr(settings, "LDAP_ENABLED", False):
+            self.stdout.write(f"LDAP_ROLE_SOURCE: {getattr(settings, 'LDAP_ROLE_SOURCE', 'ad')}")
+            self.stdout.write(f"LDAP_LOCAL_SUPERUSER_FALLBACK: {bool(getattr(settings, 'LDAP_LOCAL_SUPERUSER_FALLBACK', False))}")

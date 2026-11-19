@@ -135,6 +135,9 @@ DEFAULT_FROM_EMAIL = "nao-responda@example.invalid"
 
 # A Fase 1 não carrega configurações de integração ou backends externos.
 LDAP_ENABLED = False
+LDAP_ROLE_SOURCE = "ad"
+LDAP_ACCESS_GROUP_DN = ""
+LDAP_LOCAL_SUPERUSER_FALLBACK = False
 # A single approval is required in addition to each narrow integration flag.
 # This keeps a copied environment from silently reaching Microsoft 365.
 MICROSOFT_GRAPH_APPROVED = env.bool("MICROSOFT_GRAPH_APPROVED", default=False)

@@ -61,6 +61,14 @@ class PasswordChangeView(auth_views.PasswordChangeView):
     template_name = "accounts/password_form.html"
     success_url = "/"
 
+    def dispatch(self, request, *args, **kwargs):
+        from .backends import password_managed_by_directory
+
+        if password_managed_by_directory(request.user):
+            messages.info(request, "Sua senha é a mesma do Windows. Para trocá-la, use Ctrl+Alt+Del no computador do domínio ou fale com a TI.")
+            return redirect("account")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_form_class(self):
         if LocalAccount.objects.filter(user=self.request.user, must_change_password=True).exists():
             return FirstAccessPasswordForm

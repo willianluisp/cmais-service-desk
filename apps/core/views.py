@@ -30,8 +30,11 @@ def home(request):
 @never_cache
 def account(request):
     """Read-only presentation of the current user's own existing account data."""
+    from apps.accounts.backends import password_managed_by_directory
+
     return render(request, "accounts/account.html", {
         "active_page": "account", "account_groups": request.user.groups.order_by("name"),
+        "password_managed_by_directory": password_managed_by_directory(request.user),
     })
 
 

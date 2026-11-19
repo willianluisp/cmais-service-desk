@@ -1,0 +1,21 @@
+# Login pelo AD (LDAPS). Use junto com o compose.yaml:
+#   COMPOSE_FILE=compose.yaml:compose.ldap.yaml   (no .env)
+# A imagem passa a ter python-ldap e a CA corporativa entra só leitura nos três serviços,
+# porque o settings valida a CA ao iniciar web, worker e beat. Os volumes do compose.yaml
+# (anexos e estado do beat) continuam; o Compose soma as listas.
+x-ldap: &ldap
+  build:
+    context: .
+    args:
+      INSTALL_LDAP: "true"
+  volumes:
+    - ./secrets/cmais-root-ca.pem:/run/secrets/cmais-ad-ca.pem:ro
+  # O DNS interno do Docker também consulta 8.8.8.8, que não conhece cmais.local.
+  # Fixar o DC evita falhas de login intermitentes.
+  extra_hosts:
+    - "SERVIDOR.cmais.local:${LDAP_DC_IP:-192.168.1.100}"
+
+services:
+  web: *ldap
+  worker: *ldap
+  beat: *ldap
