@@ -87,8 +87,24 @@ def _card_description(ticket, correlation_id):
         else ""
     )
     suffix = f"\n\nCorrelação C+ Service Desk: {correlation_id}{attachment_notice}"
+    body = _form_answers_text(ticket) or f"Solicitação:\n{ticket.description}"
     # Keep the correlation and attachment notice even for long requests.
-    return metadata + f"Solicitação:\n{ticket.description}"[:max(0, 4000 - len(metadata) - len(suffix))] + suffix
+    return metadata + body[:max(0, 4000 - len(metadata) - len(suffix))] + suffix
+
+
+def _form_answers_text(ticket):
+    from apps.custom_forms.models import FormSubmission
+    from apps.custom_forms.services import answer_rows
+
+    submission = FormSubmission.objects.filter(ticket=ticket).first()
+    if submission is None:
+        return ""
+    rows = answer_rows(submission, list(ticket.attachments.all()))
+    lines = [f"Formulário: {submission.schema_snapshot.get('title', '')}"]
+    # Attachment names stay private: Planner only learns that a file exists.
+    lines += [f"{row['label']}: {'anexo disponível no portal' if row['attachment'] else row['value']}"
+              for row in rows]
+    return "\n".join(lines)
 
 
 def _link_created_task(provisioning, task):

@@ -146,7 +146,9 @@ def test_full_homologation_with_failures_and_recovery(environment, monkeypatch, 
     assert simulator.create_calls == (2 if mode == "throttle" else 1)
     assert process_pending_provisioning(graph_client=simulator) == 0
     description = simulator.descriptions["simulated-task"]
-    assert ticket.number in description and ticket.description in description
+    assert ticket.number in description and "Formulário: Suporte técnico" in description
+    assert "Solicitação descartável sem dados reais." in description
+    assert "anexo disponível no portal" in description
     assert str(provisioning.correlation_id) in description
     assert "Este chamado possui 1 anexo. Consulte-o no C+ Service Desk." in description
     assert "evidencia.pdf" not in description

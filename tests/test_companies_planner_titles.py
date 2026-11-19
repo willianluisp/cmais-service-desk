@@ -20,6 +20,26 @@ def test_dynamic_title_uses_frozen_form_name(django_user_model):
     assert _card_title(ticket) == 'Desligamento de Colaborador'
 
 
+def test_planner_description_includes_form_answers(django_user_model):
+    from apps.planner_integration.services import _card_description
+
+    ticket = create_ticket(actor=django_user_model.objects.create_user('form-owner'), title='Instalar',
+                           description='Solicitação pelo formulário Instalação de Programas.', priority='NORMAL')
+    definition = FormDefinition.objects.create(title='Instalação de Programas')
+    fields = [{'id': 'f1', 'label': 'Nome do programa', 'type': 'text'},
+              {'id': 'f2', 'label': 'Tipo de solicitação', 'type': 'text'},
+              {'id': 'f3', 'label': 'Observação', 'type': 'text'}]
+    FormSubmission.objects.create(ticket=ticket, definition=definition,
+        schema_snapshot={'title': 'Instalação de Programas', 'fields': fields},
+        answers={'f1': 'ÁREA DO COLABORADOR', 'f2': 'Configuração'})
+    text = _card_description(ticket, ticket.planner_provisioning.correlation_id)
+    assert 'Formulário: Instalação de Programas' in text
+    assert 'Nome do programa: ÁREA DO COLABORADOR' in text
+    assert 'Tipo de solicitação: Configuração' in text
+    assert 'Observação: Não informado' in text
+    assert f'Correlação C+ Service Desk: {ticket.planner_provisioning.correlation_id}' in text
+
+
 def test_company_persists_snapshot_and_rejects_inactive(django_user_model):
     from django.core.exceptions import ValidationError
 

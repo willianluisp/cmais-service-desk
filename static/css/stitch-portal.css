@@ -240,3 +240,41 @@ main { max-width: 1500px; padding: 33px 36px 58px; }
   .ticket-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ticket-form select, .ticket-form textarea { font-size: 16px; }
   .login-form-wrap { padding: 32px 22px; min-height: 100dvh; }
 }
+
+/* Detalhe do chamado: cabecalho e card de andamento */
+.ticket-detail-heading .ticket-detail-number { font-size: 14px; font-weight: 650; color: var(--muted); letter-spacing: .2px; margin: 6px 0 2px; }
+.ticket-detail-heading h1.ticket-detail-title { font-size: 30px; line-height: 1.25; margin: 0; color: var(--navy); overflow-wrap: anywhere; }
+.ticket-back-button { font-size: 15px; padding: 13px 22px; min-height: 48px; }
+.ticket-progress-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ticket-progress-status { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; font-size: 13px; background: var(--amberbg); color: #835016; }
+.ticket-progress-status:is([data-status=EM_ATENDIMENTO], [data-status=AGUARDANDO_SOLICITANTE]) { background: var(--blue2); color: #1f5cab; }
+.ticket-progress-status:is([data-status=RESOLVIDO], [data-status=FECHADO]) { background: var(--greenbg); color: var(--green); }
+.ticket-progress-status strong { font-weight: 650; }
+.ticket-progress-percent { font-size: 30px; font-weight: 750; color: var(--navy); letter-spacing: -.5px; }
+.ticket-progress-bar { display: block; width: 100%; height: 12px; margin: 12px 0 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--line); color: var(--blue); -webkit-appearance: none; appearance: none; }
+.ticket-progress-bar::-webkit-progress-bar { background: var(--line); border-radius: 999px; }
+.ticket-progress-bar::-webkit-progress-value { background: var(--blue); border-radius: 999px; transition: width .3s ease; }
+.ticket-progress-bar::-moz-progress-bar { background: var(--blue); border-radius: 999px; }
+.ticket-progress-bar[value="100"]::-webkit-progress-value { background: var(--green); }
+.ticket-progress-bar[value="100"]::-moz-progress-bar { background: var(--green); }
+.ticket-block { margin: 0 0 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.ticket-block:last-child { margin-bottom: 0; }
+.detail-grid .ticket-block h2 { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.ticket-block-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 0; font-size: 13px; }
+.ticket-block-fields-2col { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+.ticket-block-fields > div { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 8px; align-items: baseline; min-width: 0; }
+.ticket-block-fields dt, .ticket-block-fields .meta-label { display: block; margin: 0; font-size: 12px; color: var(--muted); }
+.ticket-block-fields dd, .ticket-block-fields .meta-value { margin: 0; font-size: 13px; font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
+.ticket-block-text { font-size: 13px; line-height: 1.7; color: var(--text); }
+.ticket-block-text p { margin: 0; }
+.ticket-block-text p + p { margin-top: 10px; }
+@media (max-width: 760px) { .ticket-block-fields-2col { grid-template-columns: minmax(0, 1fr); } }
+.ticket-progress-caption { font-size: 13px; font-weight: 600; color: var(--navy); margin: 0 0 4px; }
+.ticket-progress .planner-internal-checklist { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.ticket-progress-checklist { list-style: none; padding: 0; margin: 0 0 12px; }
+.ticket-progress-checklist li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; padding: 6px 0; color: var(--text); }
+.ticket-progress-checklist li.is-pending { color: var(--muted); }
+.ticket-progress-check { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #b7c4d3; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; line-height: 1; margin-top: 1px; box-sizing: border-box; }
+.is-done .ticket-progress-check { background: var(--green); border-color: var(--green); color: #fff; }
+@media (max-width: 760px) { .ticket-detail-heading h1.ticket-detail-title { font-size: 24px; } .ticket-back-button { width: 100%; justify-content: center; } }
+.ticket-progress-message { font-size: 14px; color: var(--navy); margin: 4px 0 0; line-height: 1.5; }

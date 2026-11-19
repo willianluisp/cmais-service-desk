@@ -103,7 +103,7 @@
     renderedIds = data.messages.map(m => m.id);
     detailComplete = data.complete;
     snapshots.set(panel.dataset.ticket, {ids: renderedIds, complete: data.complete});
-    status.textContent = data.complete ? 'Atualizado. As observações são apenas para leitura.' :
+    status.textContent = data.complete ? '' :
       'Não foi possível atualizar as observações. Tentaremos novamente em instantes.';
     panel.querySelector('[data-observation-loading]').hidden = true;
     paint();
