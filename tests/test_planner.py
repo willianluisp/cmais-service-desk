@@ -553,6 +553,29 @@ def test_sync_projects_assignee_due_and_checklist_once(ticket):
     assert not sync_ticket(actor=ticket.requester, ticket_id=ticket.pk, graph_client=graph)["changed"]
 
 
+@override_settings(PLANNER_PLAN_ID="plan-1")
+def test_planner_steps_show_in_ti_progress_card_only(ticket, client, django_user_model):
+    from apps.planner_integration.services import sync_ticket
+
+    class DetailGraph(Graph):
+        def get_task_details(self, task_id):
+            return {"checklist": {
+                "a": {"title": "PASSO-CRIADO-NO-PLANNER", "isChecked": True, "orderHint": "1"},
+                "b": {"title": "OUTRO-PASSO", "isChecked": False, "orderHint": "2"},
+            }}
+
+    sync_ticket(actor=ticket.requester, ticket_id=ticket.pk, graph_client=DetailGraph(payload()))
+    path = f"/chamados/{ticket.pk}/"
+    client.force_login(django_user_model.objects.create_superuser("ti-admin", password="x"))
+    body = client.get(path).content.decode()
+    assert "Andamento" in body and "PASSO-CRIADO-NO-PLANNER" in body and "OUTRO-PASSO" in body
+    assert "1 de 2 itens" in body and 'value="50"' in body
+    client.force_login(ticket.requester)
+    body = client.get(path).content.decode()
+    assert "Retorno da TI" in body and 'value="50"' in body
+    assert "PASSO-CRIADO-NO-PLANNER" not in body
+
+
 @override_settings(ROOT_URLCONF="tests.urls_planner")
 def test_endpoint_acl_csrf_post_disabled_and_rate_limit(ticket, django_user_model):
     from apps.planner_integration.views import synchronize

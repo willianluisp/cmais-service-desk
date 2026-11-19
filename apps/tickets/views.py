@@ -92,6 +92,14 @@ def ticket_create(request, standard=False):
     return render(request, "tickets/create.html", {"form": form, "active_page": "new_ticket"})
 
 
+def _progress_percent(ticket):
+    if ticket.planner_checklist_total:
+        percent = round(100 * ticket.planner_checklist_completed / ticket.planner_checklist_total)
+    else:
+        percent = ticket.planner_percent_complete or 0
+    return max(0, min(100, percent))
+
+
 def _detail(request, ticket, *, response_status=200):
     from apps.accounts.permissions import is_portal_admin
     from apps.custom_forms.models import FormSubmission
@@ -100,6 +108,8 @@ def _detail(request, ticket, *, response_status=200):
     from apps.tickets.permissions import is_ti
 
     can_view_checklist = is_ti(request.user) or is_portal_admin(request.user)
+    # Only the percentage reaches requesters; checklist item names stay private.
+    progress_percent = _progress_percent(ticket)
     if not can_view_checklist:
         # Strip the private projection before handing the ticket to any template.
         ticket.planner_checklist = []
@@ -112,6 +122,7 @@ def _detail(request, ticket, *, response_status=200):
     return render(request, "tickets/detail.html", {
         "ticket": ticket, "events": events, "attachments": attachments,
         "can_view_planner_checklist": can_view_checklist,
+        "progress_percent": progress_percent,
         "planner_assignee_names": ticket_assignee_names(ticket) if not ticket.is_sensitive else [],
         "comments": ticket.comments.filter(is_internal=False).select_related("author"),
         "custom_submission": submission, "custom_answers": answer_rows(submission, attachments) if submission else [],
