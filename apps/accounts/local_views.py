@@ -108,7 +108,7 @@ class QueuedPasswordResetForm(PasswordResetForm):
         key = hashlib.sha256(f"reset:{context['uid']}:{context['token']}".encode()).hexdigest()
         NotificationOutbox.objects.get_or_create(
             idempotency_key=key,
-            defaults={"recipient": to_email, "subject": "C+ Service Desk — Recuperação de senha", "body_text": body, "template_key": "password-reset"},
+            defaults={"recipient": to_email, "subject": "[Não responder] C+ Service Desk — Recuperação de senha", "body_text": body, "template_key": "password-reset"},
         )
 
 

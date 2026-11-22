@@ -39,7 +39,10 @@ def test_three_stage_notifications_are_deduplicated_and_private(ticket):
     assert len(notices) == 3
     assert all(n.recipient == "owner@example.test" for n in notices)
     assert [n.subject.rsplit(" — ", 1)[1] for n in notices] == ["Recebido", "Em andamento", "Finalizado"]
-    assert all("Private" not in n.body_text + n.subject for n in notices)
+    assert all(n.subject.startswith("[Não responder] C+ Service Desk — ") for n in notices)
+    # O assunto do chamado entra no e-mail (o solicitante já o conhece); a descrição nunca.
+    assert all("Private description" not in n.body_text + n.body_html + n.subject for n in notices)
+    assert all("Private title" in n.body_text and "Private title" in n.body_html for n in notices)
     assert all("http://localhost:8010/chamados/" in n.body_text for n in notices)
     # Initial bucket detection, start, progress-only change, completion: all
     # remain in history, while only start/completion add status notifications.

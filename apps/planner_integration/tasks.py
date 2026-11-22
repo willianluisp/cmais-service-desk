@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from celery import shared_task
@@ -11,6 +12,19 @@ from .configuration import automation_enabled
 from .jobs import defer_graph, integration_job
 from .models import PlannerRuntime
 from .services import process_pending_provisioning, sync_ticket
+
+
+logger = logging.getLogger(__name__)
+
+
+def _verificar_observacoes(ticket):
+    # O aviso de observações nunca derruba a sincronização do chamado.
+    from apps.notifications.observations import verificar
+
+    try:
+        verificar(ticket)
+    except Exception:
+        logger.exception("Falha ao verificar observações do chamado %s", ticket.pk)
 
 
 def _synchronize_linked_tasks(limit=25):
@@ -34,6 +48,8 @@ def _synchronize_linked_tasks(limit=25):
             defer_graph(exc)
             if exc.status == 429 or exc.code == 'AUTH_REQUIRED':
                 break
+        else:
+            _verificar_observacoes(ticket)
         processed += 1
     return processed
 

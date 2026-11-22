@@ -44,41 +44,39 @@ def enqueue_event(event):
     from apps.tickets.models import Ticket
 
     if event.event_type == "CREATED":
-        stage, label, text_intro = "ABERTO", "Recebido", "Seu chamado foi recebido pelo C+ Service Desk."
+        stage = "ABERTO"
     elif event.event_type == "PLANNER_CHANGED":
         stage = Ticket.portal_status_for(event.payload.get("status"))
         previous = Ticket.portal_status_for(event.payload.get("previous_status"))
         if not stage or stage == previous or stage == "ABERTO":
             return []
-        label = Ticket.PORTAL_STATUS_LABELS[stage]
-        text_intro = f"Seu chamado está {label.lower()}, conforme atualização identificada no Planner."
     else:
         return []
-    recipients = {ticket.requester.email}
+    from .email_layout import montar
+
+    subject, text, html = montar(ticket, stage, event.detected_at)
+    return _enqueue_for_requester(ticket, f"{event.pk}:{{recipient}}:email:ticket-event-v1", subject, text, html, event=event)
+
+
+def _enqueue_for_requester(ticket, key_pattern, subject, text, html, *, event=None, template_key="ticket-event-v1"):
     rows = []
-    for recipient in sorted(recipients):
+    for recipient in sorted({ticket.requester.email}):
         try:
             validate_email(recipient)
         except ValidationError:
             continue
         recipient = recipient.casefold()
-        key = hashlib.sha256(f"{event.pk}:{recipient}:email:ticket-event-v1".encode()).hexdigest()
-        link = f"{settings.PORTAL_BASE_URL.rstrip('/')}/chamados/{ticket.pk}/"
-        text = (
-            f"{text_intro}\nProtocolo: {ticket.number}.\n"
-            f"Estado: {Ticket.PORTAL_STATUS_LABELS[stage]}.\n"
-            f"Atualização identificada em: {timezone.localtime(event.detected_at).strftime('%d/%m/%Y %H:%M')}.\n"
-            f"Consulte o portal autenticado: {link}"
-        )
+        key = hashlib.sha256(key_pattern.format(recipient=recipient).encode()).hexdigest()
         row, _ = NotificationOutbox.objects.get_or_create(
             idempotency_key=key,
             defaults={
                 "event": event,
                 "ticket": ticket,
                 "recipient": recipient,
-                "subject": f"C+ Service Desk — {ticket.number} — {label}",
+                "template_key": template_key,
+                "subject": subject,
                 "body_text": text,
-                "body_html": "<p>" + escape(text).replace("\n", "<br>") + "</p>",
+                "body_html": html,
             },
         )
         rows.append(row)

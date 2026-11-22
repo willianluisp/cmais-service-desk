@@ -16,7 +16,7 @@ def event(django_user_model):
     ticket = Ticket.objects.create(
         number="SD-2026-000001",
         requester=user,
-        title="SECRET",
+        title="Assunto visível",
         description="SECRET",
         category=Category.objects.create(name="TI"),
     )

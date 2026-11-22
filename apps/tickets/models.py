@@ -78,6 +78,11 @@ class Ticket(models.Model):
     planner_checklist_completed = models.PositiveSmallIntegerField(default=0)
     planner_checklist_total = models.PositiveSmallIntegerField(default=0)
     planner_etag = models.CharField(max_length=255, blank=True)
+    # Aviso por e-mail das observações do Planner: o que já foi visto, quantas novas aguardam e a mais recente
+    # (o e-mail sai 15 min depois da última, juntando as que chegarem nesse intervalo).
+    observations_seen_until = models.DateTimeField(null=True, blank=True)
+    observations_pending = models.PositiveSmallIntegerField(default=0)
+    observation_last_at = models.DateTimeField(null=True, blank=True)
     last_planner_sync_at = models.DateTimeField(null=True, blank=True)
     next_planner_sync_at = models.DateTimeField(default=timezone.now, db_index=True)
     sync_state = models.CharField(max_length=10, choices=SyncState, default=SyncState.DISABLED)
