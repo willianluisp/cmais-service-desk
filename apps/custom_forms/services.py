@@ -74,8 +74,6 @@ def _publish(definition):
     fields = validate_fields(definition.fields)
     if definition.status == FormDefinition.Status.ARCHIVED:
         raise ValidationError("Formulário arquivado. Duplique-o para criar uma nova solicitação.")
-    if definition.provision_key == "offboarding":
-        definition.is_sensitive = True
     if definition.is_sensitive and not definition.draft_audience:
         raise ValidationError("Solicitação sensível exige grupos explícitos de acesso antes de publicar.")
     access_group_ids = set(definition.draft_audience)
@@ -126,7 +124,6 @@ def save_definition(*, actor, form_id, cleaned, publish=False):
     definition.checklist_items = validate_titles(cleaned.get('checklist_items', definition.checklist_items))
     if definition.checklist_enabled and not definition.checklist_items:
         raise ValidationError('Adicione pelo menos um item ou desabilite o checklist.')
-    definition.is_sensitive = definition.is_sensitive or definition.provision_key == "offboarding"
     fields = validate_fields(cleaned['fields'])
     # Retain hidden legacy questions in the definition; old answers/snapshots
     # must not be deleted just because they are no longer offered to employees.

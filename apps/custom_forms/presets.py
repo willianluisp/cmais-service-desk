@@ -15,11 +15,11 @@ def _field(key, name, kind, label, required=True, options=(), help_text=""):
 
 def get_cmais_presets():
     """Return fresh data on each call, with field identity independent of labels/order."""
-    def form(key, title, description, icon, fields, *, sensitive=False):
+    def form(key, title, description, icon, fields, *, sensitive=False, restricted=False):
         return {
             "provision_key": key, "title": title, "description": description,
             "icon": icon, "fields": [_field(key, *field) for field in fields],
-            "is_sensitive": sensitive,
+            "is_sensitive": sensitive, "audience_restricted": sensitive or restricted,
         }
 
     return [
@@ -101,5 +101,5 @@ def get_cmais_presets():
                     "Computador", "Notebook", "Monitor", "Celular", "Periféricos", "Outros"]),
                 ("notes", "long_text", "Observações para a equipe de TI", False, (),
                     "Informe apenas o necessário para os procedimentos de TI, sem motivos pessoais desnecessários."),
-            ], sensitive=True),
+            ], restricted=True),
     ]

@@ -207,23 +207,24 @@ def test_published_support_replaces_builtin_intake_without_duplicate_card(people
     assert FormSubmission.objects.get().definition == definition
 
 
-def test_offboarding_cannot_be_downgraded_or_forged_by_editor(people, client):
+def test_offboarding_follows_normal_flow_and_editor_cannot_forge_sensitivity(people, client):
     import json
 
     admin, _, _, audience, approvers = people
-    definition = FormDefinition.objects.create(title="Desligamento fictício", provision_key="offboarding", is_sensitive=True,
-        fields=[question()], draft_audience=[audience.pk], draft_approver_groups=[approvers.pk])
+    definition = FormDefinition.objects.create(title="Desligamento fictício", provision_key="offboarding",
+        fields=[question()], draft_audience=[audience.pk])
     client.force_login(admin)
     page = client.get(f'/administracao/formularios/{definition.pk}/').content.decode()
-    assert 'Proteção de acesso' not in page
     assert 'name="is_sensitive"' not in page
-    assert 'name="approvers"' not in page
     response = client.post(f"/administracao/formularios/{definition.pk}/", {"title": "Nome editado",
         "description": "Texto fictício", "icon": "request", "display_order": 0, "revision": definition.revision,
-        "fields": json.dumps(definition.fields), "action": "publish", "audience": [audience.pk], "approvers": [approvers.pk]})
+        "fields": json.dumps(definition.fields), "action": "publish", "audience": [audience.pk],
+        "approvers": [approvers.pk], "is_sensitive": "on"})
     assert response.status_code == 302
     definition.refresh_from_db()
-    assert definition.is_sensitive and definition.published_snapshot["is_sensitive"]
+    # Desligamento vai ao Planner como os demais; só a abertura do formulário fica restrita ao público.
+    assert not definition.is_sensitive and not definition.published_snapshot["is_sensitive"]
+    assert definition.audience_restricted and list(definition.allowed_groups.all()) == [audience]
 
 
 def test_historical_approval_groups_keep_access_without_approval(people, client):

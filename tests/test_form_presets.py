@@ -32,10 +32,11 @@ def test_preset_command_creates_only_seven_audited_drafts(preset_admin):
     assert audits.count() == 7
     assert {entry.changes["form_id"] for entry in audits} == {str(row.pk) for row in rows}
     offboarding = rows[-1]
-    assert offboarding.is_sensitive
+    # Desligamento segue o fluxo normal (Planner); só a abertura do formulário é restrita.
+    assert not offboarding.is_sensitive
     assert offboarding.draft_audience == offboarding.draft_approver_groups == []
     assert offboarding.audience_restricted
-    assert not any(row.is_sensitive for row in rows[:-1])
+    assert not any(row.is_sensitive or row.audience_restricted for row in rows[:-1])
 
 
 def test_preset_rerun_preserves_every_existing_record(preset_admin):

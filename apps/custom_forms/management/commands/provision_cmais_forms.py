@@ -42,7 +42,6 @@ class Command(BaseCommand):
                 **preset, "fields": fields, "display_order": index * 10,
                 "status": FormDefinition.Status.DRAFT, "published_version": 0,
                 "published_snapshot": {}, "draft_audience": [], "draft_approver_groups": [],
-                "audience_restricted": preset["is_sensitive"],
             }
             defaults.pop("provision_key")
             definition, created = FormDefinition.objects.get_or_create(provision_key=key, defaults=defaults)

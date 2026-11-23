@@ -360,3 +360,26 @@ def test_sensitive_form_keeps_existing_portal_only_policy(people, intake_data):
         'company': Company.objects.get(pk=intake_data['company']),
         'sector': Sector.objects.get(pk=intake_data['sector'])})
     assert ticket.is_sensitive and not PlannerTaskProvisioning.objects.filter(ticket=ticket).exists()
+
+
+def test_offboarding_goes_to_planner_and_only_requester_and_admin_see_it(people, intake_data, client, django_user_model):
+    from apps.custom_forms.models import FormDefinition
+    from apps.sectors.models import Company, Sector
+
+    group = Group.objects.get_or_create(name='DP_DESLIGAMENTO')[0]
+    colleague = django_user_model.objects.create_user('checklist-colleague')
+    for user in (people[1], colleague):
+        user.groups.add(group)
+    definition = save(people[0], publish=False)
+    FormDefinition.objects.filter(pk=definition.pk).update(provision_key='offboarding', draft_audience=[group.pk])
+    definition.refresh_from_db()
+    definition = publish_form(actor=people[0], form_id=definition.pk, revision=definition.revision)
+    ticket = submit_request(actor=people[1], form_id=definition.pk, cleaned={
+        'form_version': definition.published_version,
+        'company': Company.objects.get(pk=intake_data['company']),
+        'sector': Sector.objects.get(pk=intake_data['sector'])})
+    assert not ticket.is_sensitive
+    assert PlannerTaskProvisioning.objects.get(ticket=ticket).checklist_snapshot
+    for user, expected in ((people[1], 200), (people[0], 200), (colleague, 404), (people[2], 404)):
+        client.force_login(user)
+        assert client.get(f'/chamados/{ticket.pk}/').status_code == expected
