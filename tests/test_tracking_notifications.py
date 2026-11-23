@@ -56,8 +56,10 @@ def test_no_email_is_invented_for_unregistered_employee(ticket):
     ticket.requester.email = ""
     ticket.requester.save(update_fields=["email"])
     NotificationOutbox.objects.all().delete()
-    assert enqueue_event(ticket.events.get(event_type="CREATED")) == []
-    assert not NotificationOutbox.objects.exists()
+    # Nenhum destinatário é inventado: o aviso vai só para a TI, com o motivo.
+    alerta, = enqueue_event(ticket.events.get(event_type="CREATED"))
+    assert alerta.recipient == "unauthorized@example.test" and alerta.template_key == "alerta-destinatario-v1"
+    assert "não tem e-mail válido no cadastro" in alerta.body_text
 
 
 def test_pending_notifications_are_not_consumed_when_disabled(ticket, monkeypatch, settings):

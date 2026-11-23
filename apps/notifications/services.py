@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from datetime import timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -21,6 +22,9 @@ from apps.planner_integration.client import (
 )
 
 from .models import NotificationOutbox
+from .recipients import ad_ativo
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderDisabled(Exception):
@@ -55,28 +59,43 @@ def enqueue_event(event):
     from .email_layout import montar
 
     subject, text, html = montar(ticket, stage, event.detected_at)
-    return _enqueue_for_requester(ticket, f"{event.pk}:{{recipient}}:email:ticket-event-v1", subject, text, html, event=event)
+    # v2: destinatário pelo login no AD (as chaves v1 antigas não bloqueiam o reenvio de hoje).
+    return _enqueue_for_requester(ticket, f"{event.pk}:{{recipient}}:email:ticket-event-v2", subject, text, html, event=event)
+
+
+ALERT_TEMPLATE = "alerta-destinatario-v1"
 
 
 def _enqueue_for_requester(ticket, key_pattern, subject, text, html, *, event=None, template_key="ticket-event-v1"):
+    """Enfileira para o solicitante (e-mail do AD pelo login). Sem destinatário, avisa a TI com o motivo."""
+    from .recipients import destinatarios_ti, destino
+
+    recipient, motivo = destino(ticket.requester)
+    if recipient:
+        alvo = [(recipient, template_key, subject, text, html, key_pattern)]
+    else:
+        alerta = (f"O aviso \"{subject}\" não foi enviado ao solicitante: {motivo}. "
+                  f"Confira a conta no AD (login: {ticket.requester.username}).")
+        link = f"{settings.PORTAL_BASE_URL.rstrip('/')}/chamados/{ticket.pk}/"
+        alerta_html = (f"<p style=\"font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#172033\">{escape(alerta)}</p>"
+                       f"<p style=\"font-family:'Segoe UI',Arial,sans-serif;font-size:14px\"><a href=\"{escape(link)}\">Abrir o chamado {escape(ticket.number)}</a></p>")
+        assunto = f"[Não responder] C+ Service Desk — {ticket.number} — e-mail do solicitante não encontrado"
+        alvo = [(ti, ALERT_TEMPLATE, assunto, f"{alerta}\n{link}", alerta_html, key_pattern + ":alerta")
+                for ti in destinatarios_ti()]
+        logger.warning("Aviso do chamado %s redirecionado à TI: %s", ticket.number, motivo)
     rows = []
-    for recipient in sorted({ticket.requester.email}):
-        try:
-            validate_email(recipient)
-        except ValidationError:
-            continue
-        recipient = recipient.casefold()
-        key = hashlib.sha256(key_pattern.format(recipient=recipient).encode()).hexdigest()
+    for destinatario, modelo, assunto, texto, corpo, padrao in alvo:
+        key = hashlib.sha256(padrao.format(recipient=destinatario).encode()).hexdigest()
         row, _ = NotificationOutbox.objects.get_or_create(
             idempotency_key=key,
             defaults={
                 "event": event,
                 "ticket": ticket,
-                "recipient": recipient,
-                "template_key": template_key,
-                "subject": subject,
-                "body_text": text,
-                "body_html": html,
+                "recipient": destinatario,
+                "template_key": modelo,
+                "subject": assunto,
+                "body_text": texto,
+                "body_html": corpo,
             },
         )
         rows.append(row)
@@ -217,7 +236,9 @@ def process_pending(*, limit=50, provider=None):
                 continue
             notice.attempts += 1
             try:
-                if notice.ticket_id and notice.recipient.casefold() != notice.ticket.requester.email.casefold():
+                # Com o login pelo AD o destinatário veio do AD (não do cadastro) e o alerta vai para a TI.
+                if (notice.ticket_id and notice.template_key != ALERT_TEMPLATE and not ad_ativo()
+                        and notice.recipient.casefold() != notice.ticket.requester.email.casefold()):
                     raise DeliveryError("RECIPIENT_CHANGED")
                 (provider or deliver_local)(notice)
             except ProviderDisabled:
