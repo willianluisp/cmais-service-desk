@@ -56,6 +56,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.accounts.permissions.portal_access",
                 "apps.planner_integration.observations.context",
+                "apps.accounts.branding.contexto",
             ],
         },
     },

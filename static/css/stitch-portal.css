@@ -9,6 +9,8 @@ h2 { color: var(--navy); }
 .sidebar { width: 252px; padding: 23px 13px 16px; height: 100dvh; background: var(--navy); color: #c5d1e2; position: fixed; inset: 0 auto 0 0; border: 0; z-index: 20; overflow-y: auto; }
 .sidebar .brand { display: block; width: auto; max-width: none; padding: 0; margin: 2px 11px 22px; }
 .brand > img { display: block; width: 100%; height: auto; background: #fff; padding: 9px; border-radius: 8px; }
+/* A logo da Soluções é mais alta: mesma altura visual da logo da C+. */
+.brand > img.marca-solucoes { padding: 9px 30px; }
 .brand-service { display: block; border: 0; color: #fff; letter-spacing: 0; font-size: 17px; font-weight: 750; padding: 0; margin-top: 12px; }
 .brand-service > span { display: block; font-size: 10px; color: #b0c3da; font-weight: 400; letter-spacing: .2px; margin-top: 2px; }
 .nav-label { color: #a3b6cf; font-size: 10px; text-transform: uppercase; padding: 0; margin: 14px 13px 9px; }

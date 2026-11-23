@@ -13,7 +13,7 @@
 <body class="first-access-page">
   <main class="first-access-stage">
     <dialog open id="first-access-dialog" class="first-access-card" aria-labelledby="welcome-title" aria-describedby="welcome-description">
-      <img class="first-access-logo" src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contabilidade" width="260" height="53">
+      <img class="first-access-logo marca-{{ portal_marca.codigo }}" src="{% static portal_marca.logo %}" alt="{{ portal_marca.alt }}" width="{{ portal_marca.largura }}" height="{{ portal_marca.altura }}">
       <p class="eyebrow">SEU PRIMEIRO ACESSO</p>
       <h1 id="welcome-title">Bem-vindo ao C+ Service Desk!</h1>
       <p id="welcome-description">Olá, {{ user.first_name|default:user.username }}. Defina uma senha só sua para começar a abrir e acompanhar seus chamados.</p>

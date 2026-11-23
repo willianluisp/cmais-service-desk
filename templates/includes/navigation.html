@@ -1,7 +1,7 @@
 {% load static %}
 <aside class="sidebar" id="portal-navigation" aria-label="Menu principal">
   <button type="button" class="button button-quiet nav-close" data-navigation-close>Fechar menu ×</button>
-  <a class="brand" href="{% url 'home' %}" aria-label="C+ Service Desk, início"><img src="{% static 'brand/cmais-logo.svg' %}" alt="C+ Contabilidade" width="340" height="69"><span class="brand-service">Service Desk <span>Portal de atendimento</span></span></a>
+  <a class="brand" href="{% url 'home' %}" aria-label="C+ Service Desk, início"><img src="{% static portal_marca.logo %}" alt="{{ portal_marca.alt }}" width="{{ portal_marca.largura }}" height="{{ portal_marca.altura }}" class="marca-{{ portal_marca.codigo }}"><span class="brand-service">Service Desk <span>Portal de atendimento</span></span></a>
   <p class="nav-label">Meu espaço</p>
   <nav aria-label="Navegação principal">
     <a class="nav-link{% if active_page == 'home' %} is-active{% endif %}" href="{% url 'home' %}" {% if active_page == 'home' %}aria-current="page"{% endif %}>{% include 'includes/icon.html' with name='home' %} Início</a>
