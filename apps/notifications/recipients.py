@@ -67,3 +67,25 @@ def destino(usuario):
 
 def destinatarios_ti():
     return sorted({e for e in (_valido(x.strip()) for x in getattr(settings, "NOTIFICATIONS_TI_RECIPIENTS", []) or []) if e})
+
+
+def marca(usuario):
+    """'solucoes' quando o login de quem abriu está (direto ou por subgrupo) no grupo da Soluções no AD."""
+    grupo = getattr(settings, "EMAIL_SOLUCOES_GROUP_DN", "")
+    if not (grupo and ad_ativo()):
+        return "cmais"
+    import ldap
+    from ldap.filter import escape_filter_chars
+
+    from apps.accounts.directory import DirectoryUnavailable, directory_connection
+
+    login = escape_filter_chars(usuario.username.split("\\")[-1])
+    filtro = (f"(&(objectClass=user)(sAMAccountName={login})"
+              f"(memberOf:1.2.840.113556.1.4.1941:={escape_filter_chars(grupo)}))")
+    try:
+        with directory_connection() as conexao:
+            achados = conexao.search_s(settings.AUTH_LDAP_USER_SEARCH_BASE, ldap.SCOPE_SUBTREE, filtro, ["sAMAccountName"])
+    except (DirectoryUnavailable, ldap.LDAPError):
+        logger.warning("AD indisponível ao conferir o grupo da Soluções de %s; usando o layout da C+.", login)
+        return "cmais"
+    return "solucoes" if any(dn for dn, _ in achados) else "cmais"

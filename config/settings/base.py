@@ -188,6 +188,8 @@ GRAPH_MAILBOX_ID = env("GRAPH_MAILBOX_ID", default="")
 NOTIFICATIONS_PROVIDER = env("NOTIFICATIONS_PROVIDER", default="console")
 NOTIFICATIONS_MAX_ATTEMPTS = 5
 NOTIFICATIONS_TI_RECIPIENTS = env.list("NOTIFICATIONS_TI_RECIPIENTS", default=[])
+# Grupo do AD (DN) de quem atende a C+ Soluções: esses solicitantes recebem o e-mail com a marca da Soluções.
+EMAIL_SOLUCOES_GROUP_DN = env("EMAIL_SOLUCOES_GROUP_DN", default="")
 
 CELERY_BEAT_SCHEDULE = {
     'cleanup-deleted-ticket-files': {

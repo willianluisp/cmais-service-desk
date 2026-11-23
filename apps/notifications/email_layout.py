@@ -28,9 +28,18 @@ CORES = {  # fundo e texto do selo da etapa (mesmos tons do portal)
     "RESOLVIDO": ("#e9f8f0", "#147a4b"),
 }
 
-# Logo da C+ (a mesma do e-mail do Authentik), enviada junto como anexo embutido: aparece sem o Outlook pedir para baixar imagens.
-LOGO_CID = "logo-cmais"
-LOGO_ARQUIVO = Path(__file__).resolve().parent / "assets" / "logo-cmais.png"
+# Logos enviadas junto como anexo embutido (cid:): aparecem sem o Outlook pedir para baixar imagens.
+ASSETS = Path(__file__).resolve().parent / "assets"
+MARCAS = {
+    # C+ Contabilidade (a mesma logo do e-mail do Authentik): azul-marinho e verde-limão.
+    "cmais": {"cid": "logo-cmais", "arquivo": ASSETS / "logo-cmais.png", "alt": "C+ Contabilidade",
+              "largura": 200, "altura": 41, "acento": "#94c11f", "texto_botao": "#04162f", "titulo": "#04162f"},
+    # C+ Soluções Contábeis (quem está no grupo do AD em EMAIL_SOLUCOES_GROUP_DN): azul e azul-marinho.
+    "solucoes": {"cid": "logo-solucoes", "arquivo": ASSETS / "logo-solucoes.png", "alt": "C+ Soluções Contábeis",
+                 "largura": 150, "altura": 41, "acento": "#007fc1", "texto_botao": "#ffffff", "titulo": "#003d58"},
+}
+LOGO_CID = MARCAS["cmais"]["cid"]
+LOGO_ARQUIVO = MARCAS["cmais"]["arquivo"]
 
 
 def _responsaveis(ticket):
@@ -43,7 +52,7 @@ def _data(valor):
     return timezone.localtime(valor).strftime("%d/%m/%Y %H:%M") if valor else ""
 
 
-def montar(ticket, etapa, detectado_em, *, observacoes=0):
+def montar(ticket, etapa, detectado_em, *, observacoes=0, marca="cmais"):
     """Devolve (assunto, texto, html) do aviso da etapa ABERTO, EM_ATENDIMENTO ou RESOLVIDO.
 
     Com observacoes > 0, o aviso é de observações novas da TI (o texto delas fica só no portal).
@@ -75,7 +84,7 @@ def montar(ticket, etapa, detectado_em, *, observacoes=0):
         "campos": campos, "link": link, "numero": ticket.number,
         "cor_fundo": cor_fundo, "cor_texto": cor_texto,
         "etapas": [{"nome": nome, "feita": i <= indice, "atual": i == indice} for i, (_, nome) in enumerate(ETAPAS)],
-        "remetente": getattr(settings, "GRAPH_MAILBOX_ID", ""), "logo_cid": LOGO_CID,
+        "remetente": getattr(settings, "GRAPH_MAILBOX_ID", ""), "marca": MARCAS.get(marca, MARCAS["cmais"]),
     }
     assunto = f"[Não responder] C+ Service Desk — {ticket.number} — {rotulo}"
     linhas = [titulo + ".", explicacao, ""]

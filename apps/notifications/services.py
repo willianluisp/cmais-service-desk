@@ -58,7 +58,9 @@ def enqueue_event(event):
         return []
     from .email_layout import montar
 
-    subject, text, html = montar(ticket, stage, event.detected_at)
+    from .recipients import marca
+
+    subject, text, html = montar(ticket, stage, event.detected_at, marca=marca(ticket.requester))
     # v2: destinatário pelo login no AD (as chaves v1 antigas não bloqueiam o reenvio de hoje).
     return _enqueue_for_requester(ticket, f"{event.pk}:{{recipient}}:email:ticket-event-v2", subject, text, html, event=event)
 
@@ -136,18 +138,21 @@ def _inline_attachments(html):
     """Logo embutida (cid:) quando o HTML a usa. Sem o arquivo, o e-mail sai sem a imagem."""
     import base64
 
-    from .email_layout import LOGO_ARQUIVO, LOGO_CID
+    from .email_layout import MARCAS
 
-    if f"cid:{LOGO_CID}" not in html:
-        return []
-    try:
-        conteudo = LOGO_ARQUIVO.read_bytes()
-    except OSError:
-        return []
-    return [{
-        "@odata.type": "#microsoft.graph.fileAttachment", "name": LOGO_ARQUIVO.name, "contentType": "image/png",
-        "contentBytes": base64.b64encode(conteudo).decode(), "isInline": True, "contentId": LOGO_CID,
-    }]
+    anexos = []
+    for marca in MARCAS.values():
+        if f"cid:{marca['cid']}" not in html:
+            continue
+        try:
+            conteudo = marca["arquivo"].read_bytes()
+        except OSError:
+            continue
+        anexos.append({
+            "@odata.type": "#microsoft.graph.fileAttachment", "name": marca["arquivo"].name, "contentType": "image/png",
+            "contentBytes": base64.b64encode(conteudo).decode(), "isInline": True, "contentId": marca["cid"],
+        })
+    return anexos
 
 
 def deliver_graph(notice, *, opener=None):

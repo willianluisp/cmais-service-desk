@@ -55,10 +55,12 @@ def _enfileirar(ticket):
     from apps.tickets.models import Ticket
 
     from .email_layout import montar
+    from .recipients import marca
     from .services import _enqueue_for_requester
 
     etapa = Ticket.portal_status_for(ticket.status) or "ABERTO"
-    assunto, texto, html = montar(ticket, etapa, ticket.observation_last_at, observacoes=ticket.observations_pending)
+    assunto, texto, html = montar(ticket, etapa, ticket.observation_last_at, observacoes=ticket.observations_pending,
+                                 marca=marca(ticket.requester))
     chave = f"observacoes:{ticket.pk}:{ticket.observation_last_at.isoformat()}:{{recipient}}:email:ticket-observation-v1"
     linhas = _enqueue_for_requester(ticket, chave, assunto, texto, html, template_key="ticket-observation-v1")
     logger.info("Aviso de observações enfileirado: chamado=%s observacoes=%s", ticket.number, ticket.observations_pending)

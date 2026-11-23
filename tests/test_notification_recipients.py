@@ -72,3 +72,59 @@ def test_sem_login_pelo_ad_continua_o_cadastro(evento, settings):
     busca = enfileirar(evento, conta())
     busca.assert_not_called()
     assert NotificationOutbox.objects.get().recipient == "antigo@pessoal.test"
+
+
+class _Conexao:
+    def __init__(self, achados):
+        self.achados, self.filtros = achados, []
+
+    def search_s(self, base, escopo, filtro, atributos):
+        self.filtros.append(filtro)
+        return self.achados
+
+
+def _marca(settings, achados):
+    from contextlib import contextmanager
+
+    from apps.notifications.recipients import marca
+
+    conexao = _Conexao(achados)
+
+    @contextmanager
+    def falsa():
+        yield conexao
+
+    with mock.patch("apps.accounts.directory.directory_connection", falsa):
+        return marca(type("U", (), {"username": "maria.souza"})()), conexao
+
+
+GRUPO = "CN=GRP_Empresa_Solucoes,OU=Grupos,OU=CMAIS,DC=cmais,DC=local"
+
+
+def test_marca_solucoes_pelo_grupo_do_ad_inclusive_subgrupos(ad, settings):
+    settings.EMAIL_SOLUCOES_GROUP_DN = GRUPO
+    settings.AUTH_LDAP_USER_SEARCH_BASE = "OU=CMAIS,DC=cmais,DC=local"
+    resultado, conexao = _marca(settings, [("CN=Maria", {})])
+    assert resultado == "solucoes"
+    assert "memberOf:1.2.840.113556.1.4.1941:=" + GRUPO in conexao.filtros[0] and "sAMAccountName=maria.souza" in conexao.filtros[0]
+    assert _marca(settings, [])[0] == "cmais"
+    assert _marca(settings, [(None, ["ldap://referral"])])[0] == "cmais"
+
+
+def test_sem_grupo_configurado_ou_sem_ad_fica_a_marca_da_cmais(settings, ad):
+    settings.EMAIL_SOLUCOES_GROUP_DN = ""
+    assert _marca(settings, [("CN=Maria", {})])[0] == "cmais"
+    settings.EMAIL_SOLUCOES_GROUP_DN, settings.LDAP_ENABLED = GRUPO, False
+    assert _marca(settings, [("CN=Maria", {})])[0] == "cmais"
+
+
+def test_layout_da_solucoes_usa_a_logo_e_o_azul_dela(evento, settings):
+    from apps.notifications.email_layout import montar
+    from apps.notifications.services import _inline_attachments
+
+    _, _, html = montar(evento.ticket, "ABERTO", timezone.now(), marca="solucoes")
+    assert 'src="cid:logo-solucoes"' in html and "cid:logo-cmais" not in html and "#007fc1" in html and "#94c11f" not in html
+    anexo, = _inline_attachments(html)
+    assert anexo["contentId"] == "logo-solucoes" and anexo["name"] == "logo-solucoes.png"
+    _, _, html = montar(evento.ticket, "ABERTO", timezone.now())
+    assert 'src="cid:logo-cmais"' in html and "#94c11f" in html
