@@ -72,3 +72,32 @@ def test_layout_por_etapa(ticket):
     assert assunto.endswith("— Finalizado") and "Seu chamado foi finalizado" in html
     assert "Assunto do chamado" in html and "Admissão" in html and "Descrição privada" not in html + texto
     assert "https://chamados.example.test/chamados/" in html
+
+
+def test_envio_pela_microsoft_leva_a_logo_embutida(ticket, settings):
+    import json
+
+    from apps.notifications import services
+
+    settings.EMAIL_ENABLED, settings.MICROSOFT_GRAPH_APPROVED, settings.GRAPH_MAILBOX_ID = True, True, "chamados@example.test"
+    assunto, texto, html = montar(ticket, "ABERTO", timezone.now())
+    assert 'src="cid:logo-cmais"' in html
+    enviado = {}
+
+    class Resposta:
+        status = 202
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    class Abridor:
+        def open(self, pedido, timeout):
+            enviado["dados"] = json.loads(pedido.data)
+            return Resposta()
+
+    aviso = NotificationOutbox(ticket=ticket, recipient="solicitante@example.test", subject=assunto,
+                               body_text=texto, body_html=html, idempotency_key="k-logo")
+    with mock.patch.object(services, "configured_token_provider", return_value=lambda: "token"):
+        services.deliver_graph(aviso, opener=Abridor())
+    anexo, = enviado["dados"]["message"]["attachments"]
+    assert anexo["isInline"] is True and anexo["contentId"] == "logo-cmais" and anexo["contentType"] == "image/png"
+    assert len(anexo["contentBytes"]) > 1000

@@ -1,9 +1,11 @@
-"""Layout dos avisos de chamado por e-mail (visual do Portal C+: azul-marinho e verde-limão).
+"""Layout dos avisos de chamado por e-mail (cores do Portal C+), com a logo da C+ embutida (cid:).
 
 Vai no e-mail só o que o próprio solicitante já vê no portal: protocolo, assunto, categoria,
 empresa, prioridade, responsável e datas. Descrição, respostas de formulário, anexos e
 observações NÃO entram (o e-mail sai da rede e pode ser encaminhado).
 """
+
+from pathlib import Path
 
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -25,6 +27,10 @@ CORES = {  # fundo e texto do selo da etapa (mesmos tons do portal)
     "EM_ATENDIMENTO": ("#fff7df", "#8a5a00"),
     "RESOLVIDO": ("#e9f8f0", "#147a4b"),
 }
+
+# Logo da C+ (a mesma do e-mail do Authentik), enviada junto como anexo embutido: aparece sem o Outlook pedir para baixar imagens.
+LOGO_CID = "logo-cmais"
+LOGO_ARQUIVO = Path(__file__).resolve().parent / "assets" / "logo-cmais.png"
 
 
 def _responsaveis(ticket):
@@ -69,7 +75,7 @@ def montar(ticket, etapa, detectado_em, *, observacoes=0):
         "campos": campos, "link": link, "numero": ticket.number,
         "cor_fundo": cor_fundo, "cor_texto": cor_texto,
         "etapas": [{"nome": nome, "feita": i <= indice, "atual": i == indice} for i, (_, nome) in enumerate(ETAPAS)],
-        "remetente": getattr(settings, "GRAPH_MAILBOX_ID", ""),
+        "remetente": getattr(settings, "GRAPH_MAILBOX_ID", ""), "logo_cid": LOGO_CID,
     }
     assunto = f"[Não responder] C+ Service Desk — {ticket.number} — {rotulo}"
     linhas = [titulo + ".", explicacao, ""]

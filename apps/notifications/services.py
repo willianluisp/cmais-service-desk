@@ -113,6 +113,24 @@ def deliver_local(notice):
         raise RuntimeError("delivery failed")
 
 
+def _inline_attachments(html):
+    """Logo embutida (cid:) quando o HTML a usa. Sem o arquivo, o e-mail sai sem a imagem."""
+    import base64
+
+    from .email_layout import LOGO_ARQUIVO, LOGO_CID
+
+    if f"cid:{LOGO_CID}" not in html:
+        return []
+    try:
+        conteudo = LOGO_ARQUIVO.read_bytes()
+    except OSError:
+        return []
+    return [{
+        "@odata.type": "#microsoft.graph.fileAttachment", "name": LOGO_ARQUIVO.name, "contentType": "image/png",
+        "contentBytes": base64.b64encode(conteudo).decode(), "isInline": True, "contentId": LOGO_CID,
+    }]
+
+
 def deliver_graph(notice, *, opener=None):
     """Submit through Outlook/Graph; HTTP 202 means accepted, not delivered."""
     if (notice.ticket_id and notice.ticket.is_sensitive) or (notice.event_id and notice.event.ticket.is_sensitive):
@@ -139,6 +157,9 @@ def deliver_graph(notice, *, opener=None):
         },
         "saveToSentItems": False,
     }
+    anexos = _inline_attachments(payload["message"]["body"]["content"])
+    if anexos:
+        payload["message"]["attachments"] = anexos
     request = Request(
         "https://graph.microsoft.com/v1.0/users/" + quote(settings.GRAPH_MAILBOX_ID, safe="") + "/sendMail",
         data=json.dumps(payload, separators=(",", ":")).encode(),
